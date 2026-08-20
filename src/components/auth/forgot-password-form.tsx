@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { LoaderCircle, Send } from "lucide-react";
+import { LoaderCircle, ShieldCheck } from "lucide-react";
 import { forgotPasswordAction, type AuthState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -16,7 +16,7 @@ export function ForgotPasswordForm() {
       {state.message && <StatusMessage tone={state.status === "success" ? "success" : "error"}>{state.message}</StatusMessage>}
       <Field label="Email" name="email" type="email" autoComplete="email" required placeholder="nama@email.com" />
       <Button type="submit" size="lg" disabled={pending} className="w-full">
-        {pending ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <><Send className="size-5" aria-hidden="true" /> Kirim link reset</>}
+        {pending ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <><ShieldCheck className="size-5" aria-hidden="true" /> Kirim link reset</>}
       </Button>
     </form>
   );

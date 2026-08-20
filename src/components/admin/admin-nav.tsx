@@ -3,26 +3,37 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ClipboardList,
+  BookOpenCheck,
+  ContactRound,
   ExternalLink,
-  Gauge,
+  Kanban,
   LogOut,
+  PanelTopDashed,
+  PanelsTopLeft,
   QrCode,
-  ScrollText,
-  Settings2,
-  Users,
+  SlidersHorizontal,
+  UsersRound,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { adminSignOutAction } from "@/app/admin/actions";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { href: "/admin", label: "Ringkasan", icon: Gauge, exact: true },
-  { href: "/admin/requests", label: "Request", icon: ClipboardList },
-  { href: "/admin/customers", label: "Customer", icon: Users },
-  { href: "/admin/program", label: "Program", icon: Settings2 },
+  { href: "/admin", label: "Ringkasan", icon: PanelTopDashed, exact: true },
+  { href: "/admin/requests", label: "Request", icon: Kanban },
+  { href: "/admin/customers", label: "Customer", icon: ContactRound },
+  { href: "/admin/program", label: "Program", icon: SlidersHorizontal },
   { href: "/admin/qr", label: "QR", icon: QrCode },
-  { href: "/admin/audit", label: "Audit", icon: ScrollText },
+  { href: "/admin/audit", label: "Audit", icon: BookOpenCheck },
+  { href: "/admin/admins", label: "Akun admin", icon: UsersRound },
+];
+
+const mobileNavigation = [
+  { href: "/admin", label: "Home", icon: PanelTopDashed, exact: true },
+  { href: "/admin/requests", label: "Request", icon: Kanban },
+  { href: "/admin/customers", label: "Customer", icon: ContactRound },
+  { href: "/admin/program", label: "Program", icon: SlidersHorizontal },
+  { href: "/admin/more", label: "Lainnya", icon: PanelsTopLeft },
 ];
 
 function isCurrent(pathname: string, href: string, exact?: boolean) {
@@ -49,6 +60,41 @@ function NavigationLinks({ compact = false }: { compact?: boolean }) {
       </Link>
     );
   });
+}
+
+function MobileBottomNavigation() {
+  const pathname = usePathname();
+
+  return (
+    <nav
+      aria-label="Navigasi admin mobile"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line/90 bg-white/95 px-2 pt-2 shadow-[0_-10px_30px_rgba(43,39,40,0.08)] backdrop-blur lg:hidden print:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+    >
+      <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+        {mobileNavigation.map(({ href, label, icon: Icon, exact }) => {
+          const active = href === "/admin/more"
+            ? ["/admin/more", "/admin/qr", "/admin/audit", "/admin/admins"].some((path) => isCurrent(pathname, path))
+            : isCurrent(pathname, href, exact);
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-bold leading-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                active
+                  ? "bg-brand-soft text-brand-strong"
+                  : "text-ink-muted hover:bg-surface-muted hover:text-ink",
+              )}
+            >
+              <Icon className={cn("size-5 shrink-0", active && "stroke-[2.5]")} aria-hidden="true" />
+              <span className="w-full truncate text-center">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
 }
 
 export function AdminNav({ adminName }: { adminName: string }) {
@@ -98,10 +144,8 @@ export function AdminNav({ adminName }: { adminName: string }) {
             </form>
           </div>
         </div>
-        <nav aria-label="Navigasi admin" className="flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <NavigationLinks compact />
-        </nav>
       </header>
+      <MobileBottomNavigation />
     </>
   );
 }

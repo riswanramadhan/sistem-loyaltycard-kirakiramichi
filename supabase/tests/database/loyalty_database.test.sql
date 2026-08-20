@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select extensions.plan(94);
+select extensions.plan(100);
 
 -- Required schema and deletion semantics.
 select extensions.has_table('public', 'profiles', 'profiles exists');
@@ -1047,6 +1047,52 @@ select extensions.is(
   ),
   0::bigint,
   'completed journey leaves no unresolved request'
+);
+
+-- Admin API deletion invokes the auth trigger and leaves no customer data behind.
+select set_config('request.jwt.claim.sub', '50000000-0000-4000-8000-000000000001', true);
+select extensions.lives_ok(
+  $$ select public.admin_prepare_customer_deletion('40000000-0000-4000-8000-000000000001') $$,
+  'admin can authorize complete customer deletion'
+);
+
+delete from auth.users
+where id = '40000000-0000-4000-8000-000000000001';
+
+select extensions.is(
+  (select count(*) from auth.users where id = '40000000-0000-4000-8000-000000000001'),
+  0::bigint,
+  'customer auth account is deleted'
+);
+select extensions.is(
+  (select count(*) from public.profiles where id = '40000000-0000-4000-8000-000000000001'),
+  0::bigint,
+  'customer profile is deleted'
+);
+select extensions.is(
+  (
+    (select count(*) from public.member_programs where user_id = '40000000-0000-4000-8000-000000000001')
+    +
+    (select count(*) from public.member_cards where member_program_id in (
+      select id from public.member_programs where user_id = '40000000-0000-4000-8000-000000000001'
+    ))
+  ),
+  0::bigint,
+  'customer memberships and cards are deleted'
+);
+select extensions.is(
+  (
+    (select count(*) from public.stamp_requests where user_id = '40000000-0000-4000-8000-000000000001')
+    +
+    (select count(*) from public.stamp_events where user_id = '40000000-0000-4000-8000-000000000001')
+  ),
+  0::bigint,
+  'customer stamp requests and ledger are deleted'
+);
+select extensions.is(
+  (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
+  0::bigint,
+  'customer rewards are deleted'
 );
 
 select * from extensions.finish();

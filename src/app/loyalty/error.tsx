@@ -9,7 +9,7 @@ export default function LoyaltyError({ reset }: { error: Error & { digest?: stri
       <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-danger-soft text-danger">
         <WifiOff className="size-6" aria-hidden="true" />
       </span>
-      <h1 className="mt-5 text-xl font-extrabold tracking-tight text-ink">Loyalty belum bisa dimuat</h1>
+      <h1 className="mt-5 text-xl font-extrabold text-ink">Loyalty belum bisa dimuat</h1>
       <p className="mt-2 text-sm leading-6 text-ink-muted">
         Koneksi atau data kamu sedang diperbarui. Tidak ada progress yang hilang—coba muat lagi.
       </p>
@@ -19,4 +19,3 @@ export default function LoyaltyError({ reset }: { error: Error & { digest?: stri
     </section>
   );
 }
-

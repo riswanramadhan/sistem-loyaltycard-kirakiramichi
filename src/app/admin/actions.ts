@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { getAuthRedirectOrigin } from "@/lib/request-url";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type AdminActionState = {
@@ -80,6 +82,123 @@ function success(message: string): AdminActionState {
 
 function failure(message: string): AdminActionState {
   return { status: "error", message };
+}
+
+export async function createAdminAccountAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdmin();
+
+  const parsed = z.object({
+    fullName: z.string().trim().min(2, "Nama admin minimal 2 karakter.").max(100),
+    email: z.string().trim().email("Email admin belum valid.").max(254),
+  }).safeParse({
+    fullName: safeFormText(formData, "fullName"),
+    email: safeFormText(formData, "email").toLowerCase(),
+  });
+
+  if (!parsed.success) return failure(parsed.error.issues[0]?.message ?? "Data admin belum valid.");
+
+  let adminClient;
+  try {
+    adminClient = createAdminClient();
+  } catch {
+    return failure("Service akun admin belum dikonfigurasi di Vercel.");
+  }
+
+  const { data, error } = await adminClient.auth.admin.createUser({
+    email: parsed.data.email,
+    email_confirm: true,
+    user_metadata: { full_name: parsed.data.fullName },
+  });
+
+  if (error || !data.user) {
+    const message = error?.message.toLowerCase() ?? "";
+    return failure(
+      message.includes("already") || message.includes("registered")
+        ? "Email ini sudah mempunyai akun. Gunakan email admin lain."
+        : "Akun admin belum berhasil dibuat. Coba lagi sebentar.",
+    );
+  }
+
+  const supabase = await createClient();
+  const { error: promoteError } = await supabase.rpc("admin_promote_account", {
+    p_user_id: data.user.id,
+  });
+
+  if (promoteError) {
+    await adminClient.auth.admin.deleteUser(data.user.id);
+    return failure("Akun gagal diberi akses admin dan sudah dibatalkan dengan aman.");
+  }
+
+  let loginLinkSent = false;
+  try {
+    const origin = await getAuthRedirectOrigin();
+    const { error: loginLinkError } = await adminClient.auth.signInWithOtp({
+      email: parsed.data.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${origin}/auth/callback?next=/admin`,
+      },
+    });
+    if (loginLinkError) console.error("Initial admin login link could not be sent", loginLinkError.message);
+    else loginLinkSent = true;
+  } catch {
+    console.error("Initial admin login link origin is not configured safely.");
+  }
+
+  revalidatePath("/admin/admins");
+  return success(
+    loginLinkSent
+      ? `Admin ${parsed.data.email} siap. Link login pertama sudah dikirim.`
+      : `Admin ${parsed.data.email} siap. Minta link dari halaman login admin.`,
+  );
+}
+
+export async function deleteCustomerAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdmin();
+
+  const parsed = z.object({
+    customerId: uuidSchema,
+    confirmation: z.literal("HAPUS"),
+  }).safeParse({
+    customerId: safeFormText(formData, "customerId"),
+    confirmation: safeFormText(formData, "confirmation").trim().toUpperCase(),
+  });
+
+  if (!parsed.success) return failure("Ketik HAPUS untuk mengonfirmasi penghapusan permanen.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_prepare_customer_deletion", {
+    p_user_id: parsed.data.customerId,
+  });
+
+  if (error) {
+    return failure(friendlyMutationError("delete-customer", error));
+  }
+
+  let adminClient;
+  try {
+    adminClient = createAdminClient();
+  } catch {
+    return failure("Service penghapusan akun belum dikonfigurasi di Vercel.");
+  }
+
+  const { error: deleteError } = await adminClient.auth.admin.deleteUser(parsed.data.customerId);
+  if (deleteError) {
+    console.error("[admin:delete-auth-user]", deleteError.message);
+    return failure("Akun belum berhasil dihapus. Tidak ada data yang dihapus; coba lagi sebentar.");
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/customers");
+  revalidatePath("/admin/requests");
+  revalidatePath("/admin/audit");
+  redirect("/admin/customers");
 }
 
 export async function reviewStampRequestAction(

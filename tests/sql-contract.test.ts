@@ -10,6 +10,7 @@ const security = migration("20260814000200_loyalty_security.sql");
 const mutations = migration("20260814000300_loyalty_mutations.sql");
 const reads = migration("20260814000400_loyalty_reads.sql");
 const realtime = migration("20260814000500_loyalty_realtime.sql");
+const adminAccounts = migration("20260820000100_admin_account_management.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -105,16 +106,31 @@ describe("Supabase migration contract", () => {
     expect(realtime).toContain("supabase_realtime_publication_missing");
   });
 
+  it("keeps admin creation and complete customer deletion role checked", () => {
+    expect(adminAccounts).toContain("create or replace function public.admin_promote_account");
+    expect(adminAccounts).toContain("create or replace function public.get_admin_accounts");
+    expect(adminAccounts).toContain("create or replace function public.admin_prepare_customer_deletion");
+    expect(adminAccounts).toContain("create or replace function public._purge_customer_before_auth_delete");
+    expect(adminAccounts.match(/admin_access_required/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(adminAccounts).toContain("delete from public.reward_redemptions");
+    expect(adminAccounts).toContain("delete from public.stamp_events");
+    expect(adminAccounts).toContain("delete from public.stamp_requests");
+    expect(adminAccounts).toContain("delete from public.member_programs");
+    expect(adminAccounts).toContain("before delete on auth.users");
+    expect(adminAccounts).toContain("only_customer_accounts_can_be_deleted");
+  });
+
   it("ships the full database behavior test suite", () => {
     const pgTap = readFileSync(
       join(process.cwd(), "supabase", "tests", "database", "loyalty_database.test.sql"),
       "utf8",
     ).toLowerCase();
-    expect(pgTap).toContain("extensions.plan(94)");
+    expect(pgTap).toContain("extensions.plan(100)");
     expect(pgTap).toContain("double approval is rejected");
     expect(pgTap).toContain("card six completion completes the member program");
     expect(pgTap).toContain("customer cannot read another profile");
     expect(pgTap).toContain("an expired reward cannot be redeemed");
     expect(pgTap).toContain("reversal reopens the completed card with corrected progress");
+    expect(pgTap).toContain("customer stamp requests and ledger are deleted");
   });
 });

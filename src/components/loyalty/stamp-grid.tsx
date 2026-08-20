@@ -1,6 +1,7 @@
 "use client";
 
-import { Clock3, LockKeyhole, Plus, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Clock3, LockKeyhole, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StampState = "empty" | "pending" | "approved" | "latest" | "locked";
@@ -9,15 +10,19 @@ function StampSeal({ latest }: { latest: boolean }) {
   return (
     <span
       className={cn(
-        "relative grid size-12 place-items-center rounded-[38%] bg-brand text-white shadow-[inset_0_-4px_0_rgba(112,11,14,0.18),0_4px_10px_rgba(237,32,36,0.2)]",
-        latest && "animate-stamp-pop ring-4 ring-accent/55 ring-offset-2",
+        "relative grid size-14 place-items-center sm:size-16",
+        latest && "animate-stamp-pop",
       )}
       aria-hidden="true"
     >
-      <Sparkles className="size-6 fill-accent text-accent" strokeWidth={2.5} />
-      <span className="absolute -bottom-1 rounded-full bg-white px-1.5 py-0.5 text-[8px] font-black tracking-[0.12em] text-brand shadow-sm">
-        KM
-      </span>
+      <Image
+        src="/kira-kira-michi-stamp-final.png"
+        alt=""
+        width={64}
+        height={64}
+        sizes="(max-width: 640px) 56px, 64px"
+        className="size-full object-contain drop-shadow-[0_3px_3px_rgba(185,21,26,.18)]"
+      />
     </span>
   );
 }
@@ -99,4 +104,3 @@ export function StampGrid({
     </ol>
   );
 }
-

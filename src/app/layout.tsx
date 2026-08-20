@@ -5,11 +5,12 @@ import "@fontsource/epilogue/600.css";
 import "@fontsource/epilogue/700.css";
 import "@fontsource/epilogue/800.css";
 import "./globals.css";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: {
     default: "Kira Kira Michi Loyalty",
-    template: "%s · Kira Kira Michi",
+    template: "%s - Kira Kira Michi",
   },
   description: "Kumpulkan stamp, buka reward, dan lanjutkan loyalty journey-mu.",
   applicationName: "Kira Kira Michi Loyalty",
@@ -25,7 +26,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <body>
+        <div className="min-h-svh">{children}</div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

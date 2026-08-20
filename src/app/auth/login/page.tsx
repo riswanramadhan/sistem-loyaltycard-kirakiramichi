@@ -5,10 +5,17 @@ import { safeReturnPath } from "@/lib/navigation";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string; notice?: string; error?: string }> }) {
   const params = await searchParams;
+  const errorMessage = params.error === "admin-access"
+    ? "Email ini tidak memiliki akses admin."
+    : params.error === "callback"
+      ? "Link autentikasi tidak valid atau sudah kedaluwarsa. Minta link baru ya."
+      : null;
+
   return (
-    <AuthShell title="Selamat datang lagi" description="Masuk untuk melihat stamp dan reward kamu.">
-      {params.notice === "check-email" && <StatusMessage tone="success" className="mb-5">Cek email kamu untuk mengaktifkan akun, lalu masuk kembali.</StatusMessage>}
-      {params.error === "callback" && <StatusMessage className="mb-5">Link autentikasi tidak valid atau sudah kedaluwarsa. Coba kirim ulang ya.</StatusMessage>}
+    <AuthShell title="Okaeri!" description="Masuk lagi buat lanjut jalan menuju reward-mu.">
+      {params.notice === "verified" && <StatusMessage tone="success" className="mb-5">Email berhasil diverifikasi! Silakan masuk.</StatusMessage>}
+      {params.notice === "check-email" && <StatusMessage tone="success" className="mb-5">Link verifikasi sudah dikirim. Cek inbox email kamu.</StatusMessage>}
+      {errorMessage && <StatusMessage tone="error" className="mb-5">{errorMessage}</StatusMessage>}
       <LoginForm next={safeReturnPath(params.next)} />
     </AuthShell>
   );

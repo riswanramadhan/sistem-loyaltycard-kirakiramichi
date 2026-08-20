@@ -14,8 +14,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-surface lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] print:block print:bg-white">
       <AdminNav adminName={adminName} />
-      <main className="min-w-0 print:bg-white">
-        <div className="mx-auto w-full max-w-[100rem] px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">{children}</div>
+      <main className="min-w-0 pb-24 print:bg-white lg:pb-0">
+        <div className="mx-auto w-full max-w-[100rem] px-4 py-5 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">{children}</div>
       </main>
     </div>
   );

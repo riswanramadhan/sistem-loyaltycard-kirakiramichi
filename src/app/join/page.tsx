@@ -25,7 +25,7 @@ export default async function JoinPage() {
           <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-brand-soft text-brand">
             <QrCode className="size-7" aria-hidden="true" />
           </span>
-          <h1 className="mt-5 text-3xl font-extrabold tracking-tight">Join Kira Kira Michi Loyalty</h1>
+          <h1 className="mt-5 text-3xl font-extrabold">Join Kira Kira Michi Loyalty</h1>
           <p className="mt-3 text-sm leading-6 text-ink-muted">Kumpulkan 8 stamp di setiap card, buka reward, dan lanjutkan sampai Card 6.</p>
           <div className="mt-6 grid grid-cols-2 gap-3 text-left text-xs">
             <div className="rounded-xl bg-warning-soft p-3"><Sparkles className="size-5 text-warning" aria-hidden="true" /><p className="mt-2 font-bold text-ink">Request +1 / +2</p></div>

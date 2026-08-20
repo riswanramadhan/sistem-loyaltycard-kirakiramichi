@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Gift, Sparkles } from "lucide-react";
+import { ArrowRight, Camera, Gift, MessageCircleHeart, Sparkles } from "lucide-react";
 import { LoyaltyJourney } from "@/components/loyalty/loyalty-journey";
 import { firstName } from "@/components/loyalty/format";
 import type { LoyaltyCardStatus, LoyaltyCardView } from "@/components/loyalty/types";
@@ -66,7 +66,7 @@ function MembershipEmpty({ name }: { name: string }) {
       <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-warning-soft text-warning">
         <Sparkles className="size-7" aria-hidden="true" />
       </span>
-      <h2 className="mt-5 text-xl font-extrabold tracking-tight text-ink">Siap mulai, {name}?</h2>
+      <h2 className="mt-5 text-xl font-extrabold text-ink">Siap mulai, {name}?</h2>
       <p className="mt-2 text-sm leading-6 text-ink-muted">
         Aktifkan membership sekali saja, lalu enam loyalty card kamu akan siap dikumpulkan.
       </p>
@@ -192,13 +192,11 @@ export default async function LoyaltyPage() {
 
   return (
     <>
-      <section className="relative overflow-hidden rounded-[1.75rem] bg-ink p-5 text-white shadow-[0_16px_44px_rgba(43,39,40,0.14)] sm:p-7">
-        <div className="absolute -right-10 -top-12 size-36 rotate-12 rounded-[42%] bg-brand" aria-hidden="true" />
-        <div className="absolute right-20 top-5 size-5 rotate-45 rounded-sm bg-accent" aria-hidden="true" />
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-ink bg-ink p-5 text-white shadow-[0_16px_44px_rgba(43,39,40,0.14)] sm:p-7">
         <div className="relative flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-accent">Kira Kira Michi</p>
-            <h1 className="mt-2 text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">Hai, {name}!</h1>
+            <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Okaeri, {name}!</h1>
             <p className="mt-2 max-w-md text-sm leading-6 text-white/75">{subcopy}</p>
           </div>
           <Link
@@ -219,6 +217,21 @@ export default async function LoyaltyPage() {
           </span>
         </div>
       </section>
+
+      <aside className="mt-5 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Kontak Kira Kira Michi">
+        <div>
+          <p className="font-extrabold text-ink">Mau order atau ada kendala?</p>
+          <p className="mt-1 text-xs leading-5 text-ink-muted">Hub admin aja, santai. Kita bantu sampai beres.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <a href="https://wa.me/6289529974959" target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-soft px-3 text-xs font-extrabold text-brand hover:bg-brand hover:text-white">
+            <MessageCircleHeart className="size-4" aria-hidden="true" /> 089529974959
+          </a>
+          <a href="https://www.instagram.com/kirakiramichi.merchandise" target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-surface-muted px-3 text-xs font-extrabold text-ink hover:bg-ink hover:text-white">
+            <Camera className="size-4" aria-hidden="true" /> Follow IG
+          </a>
+        </div>
+      </aside>
 
       {cards.length > 0 ? (
         <LoyaltyJourney cards={cards} />

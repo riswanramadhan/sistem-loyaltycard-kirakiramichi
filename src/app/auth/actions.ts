@@ -26,6 +26,8 @@ function friendlyAuthMessage(message?: string) {
   if (normalized.includes("already registered") || normalized.includes("already been registered")) return "Email ini sudah terdaftar. Silakan masuk.";
   if (normalized.includes("password")) return "Password belum memenuhi ketentuan keamanan.";
   if (normalized.includes("rate limit")) return "Terlalu banyak percobaan. Coba lagi beberapa saat ya.";
+  if (normalized.includes("expired")) return "Tautan autentikasi sudah kedaluwarsa. Minta tautan baru ya.";
+  if (normalized.includes("otp") || normalized.includes("token")) return "Tautan autentikasi tidak valid atau sudah digunakan.";
   return "Proses belum berhasil. Coba lagi sebentar ya.";
 }
 
@@ -83,14 +85,14 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
     return { status: "error", message: parsed.error.issues[0]?.message, fields };
   }
 
-  let redirectOrigin: string;
+  let origin: string;
   try {
-    redirectOrigin = await getAuthRedirectOrigin();
+    origin = await getAuthRedirectOrigin();
   } catch {
     console.error("Auth redirect origin is not configured safely.");
     return {
       status: "error",
-      message: "Link autentikasi belum dikonfigurasi. Hubungi tim Kira Kira Michi.",
+      message: "Verifikasi email belum dikonfigurasi untuk domain production. Hubungi tim Kira Kira Michi.",
       fields,
     };
   }
@@ -100,7 +102,7 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${redirectOrigin}/auth/callback?next=/loyalty`,
+      emailRedirectTo: `${origin}/auth/callback?next=/loyalty`,
       data: {
         full_name: parsed.data.fullName,
         whatsapp: parsed.data.whatsapp,
@@ -121,33 +123,74 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
     redirect("/loyalty");
   }
 
-  redirect("/auth/login?notice=check-email");
+  return {
+    status: "success",
+    message: "Link verifikasi sudah dikirim. Buka email kamu lalu klik link tersebut untuk mengaktifkan akun.",
+    fields,
+  };
 }
 
 export async function forgotPasswordAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
   const parsed = emailSchema.safeParse(formData.get("email"));
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message };
 
-  let redirectOrigin: string;
+  let origin: string;
   try {
-    redirectOrigin = await getAuthRedirectOrigin();
+    origin = await getAuthRedirectOrigin();
   } catch {
-    console.error("Auth redirect origin is not configured safely.");
+    console.error("Password recovery redirect origin is not configured safely.");
     return {
       status: "error",
-      message: "Link reset password belum dikonfigurasi. Hubungi tim Kira Kira Michi.",
+      message: "Reset password belum dikonfigurasi untuk domain production. Hubungi tim Kira Kira Michi.",
     };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
-    redirectTo: `${redirectOrigin}/auth/callback?next=/auth/update-password`,
+    redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
   });
   if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
 
   return {
     status: "success",
-    message: "Jika email terdaftar, link reset password sudah kami kirim.",
+    message: "Link reset password sudah dikirim. Buka email kamu lalu klik link tersebut.",
+  };
+}
+
+export async function requestAdminLoginLinkAction(
+  _previous: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const parsed = emailSchema.safeParse(formData.get("email"));
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message };
+  }
+
+  let origin: string;
+  try {
+    origin = await getAuthRedirectOrigin();
+  } catch {
+    console.error("Admin auth redirect origin is not configured safely.");
+    return {
+      status: "error",
+      message: "Login admin belum siap. Hubungi pengelola Kira Kira Michi.",
+    };
+  }
+
+  const email = parsed.data.toLowerCase();
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: `${origin}/auth/callback?next=/admin`,
+    },
+  });
+
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
+  return {
+    status: "success",
+    message: "Link login admin sudah dikirim. Buka email tersebut lalu klik link untuk masuk.",
   };
 }
 

@@ -136,7 +136,7 @@ export function RewardSection({
     <section aria-labelledby={`${status}-title`}>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 id={`${status}-title`} className="text-lg font-extrabold tracking-tight text-ink">
+          <h2 id={`${status}-title`} className="text-lg font-extrabold text-ink">
             {copy.title}
           </h2>
           <p className="mt-1 text-sm text-ink-muted">{copy.description}</p>

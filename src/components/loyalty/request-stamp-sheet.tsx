@@ -106,7 +106,7 @@ export function RequestStampSheet({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">Card {cardNumber}</p>
-            <h2 id="request-stamp-title" className="mt-1 text-2xl font-extrabold tracking-tight text-ink">
+            <h2 id="request-stamp-title" className="mt-1 text-2xl font-extrabold text-ink">
               Request Stamp
             </h2>
             <p

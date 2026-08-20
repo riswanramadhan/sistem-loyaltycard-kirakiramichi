@@ -8,7 +8,7 @@ export default function NotFound() {
       <section className="max-w-md text-center">
         <BrandLogo className="mx-auto" priority />
         <p className="mt-8 text-sm font-bold text-brand">404</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Halaman tidak ditemukan</h1>
+        <h1 className="mt-2 text-3xl font-extrabold">Halaman tidak ditemukan</h1>
         <p className="mt-3 text-sm leading-6 text-ink-muted">
           Link ini mungkin sudah berubah. Yuk kembali ke halaman utama.
         </p>

@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { copyResponseCookies, updateSession } from "@/lib/supabase/proxy";
 
 const protectedPrefixes = ["/loyalty", "/admin"];
-const authPrefixes = ["/auth/login", "/auth/register"];
+const authPrefixes = ["/auth/login", "/auth/register", "/auth/admin-login"];
 
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;

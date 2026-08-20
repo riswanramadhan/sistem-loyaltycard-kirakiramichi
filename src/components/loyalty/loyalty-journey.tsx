@@ -126,7 +126,7 @@ function LoyaltyCard({
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">
               Card {card.sequenceNo} of 6
             </p>
-            <h2 id={`card-${card.id}-title`} className="mt-1.5 text-xl font-extrabold tracking-tight text-ink">
+            <h2 id={`card-${card.id}-title`} className="mt-1.5 text-xl font-extrabold text-ink">
               {card.title ?? `Loyalty Card ${card.sequenceNo}`}
             </h2>
           </div>
@@ -141,7 +141,7 @@ function LoyaltyCard({
 
         <div className="mt-5 flex items-end justify-between gap-3">
           <div>
-            <p className="text-3xl font-black tracking-[-0.05em] text-ink">
+            <p className="text-3xl font-black text-ink">
               {card.stampsCount}<span className="text-lg text-ink-faint">/8</span>
             </p>
             <p className="text-xs font-semibold text-ink-muted">stamp sudah masuk</p>
@@ -225,6 +225,12 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
     return () => window.clearTimeout(timer);
   }, [cards, scrollToCard]);
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   const openRequest = (card: LoyaltyCardView) => {
     if (card.status !== "active" || card.hasPendingRequest || card.stampsCount >= 8) return;
     setNotice(null);
@@ -238,7 +244,7 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">Loyalty journey</p>
-          <h2 id="journey-heading" className="mt-1 text-xl font-extrabold tracking-tight text-ink">
+          <h2 id="journey-heading" className="mt-1 text-xl font-extrabold text-ink">
             Enam card, satu perjalanan seru
           </h2>
         </div>

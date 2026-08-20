@@ -1,22 +1,35 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeReturnPath } from "@/lib/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+const allowedEmailTypes = new Set<EmailOtpType>([
+  "email",
+  "signup",
+  "recovery",
+  "magiclink",
+]);
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
+  const tokenHash = url.searchParams.get("token_hash");
+  const rawType = url.searchParams.get("type") as EmailOtpType | null;
   const requestedNext = url.searchParams.get("next");
   const next =
     requestedNext === "/auth/update-password"
       ? requestedNext
       : safeReturnPath(requestedNext);
 
-  if (!code) {
+  if (!tokenHash || !rawType || !allowedEmailTypes.has(rawType)) {
     return NextResponse.redirect(new URL("/auth/login?error=callback", url.origin));
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: rawType,
+  });
+
   if (error) {
     return NextResponse.redirect(new URL("/auth/login?error=callback", url.origin));
   }

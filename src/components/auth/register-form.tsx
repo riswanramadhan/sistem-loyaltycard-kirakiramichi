@@ -14,7 +14,11 @@ export function RegisterForm() {
   const [state, action, pending] = useActionState(registerAction, initialState);
   return (
     <form action={action} className="grid gap-5">
-      {state.message && <StatusMessage>{state.message}</StatusMessage>}
+      {state.message && (
+        <StatusMessage tone={state.status === "success" ? "success" : "error"}>
+          {state.message}
+        </StatusMessage>
+      )}
       <Field label="Nama lengkap" name="fullName" autoComplete="name" required defaultValue={state.fields?.fullName} placeholder="Nama kamu" />
       <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.fields?.email} placeholder="nama@email.com" />
       <Field label="WhatsApp" name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" required defaultValue={state.fields?.whatsapp} placeholder="08xxxxxxxxxx" hint="Dipakai admin untuk mencocokkan transaksi." />

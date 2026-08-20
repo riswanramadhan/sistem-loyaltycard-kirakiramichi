@@ -8,7 +8,7 @@ export default function ForbiddenPage() {
       <section className="max-w-md text-center">
         <BrandLogo className="mx-auto" priority />
         <ShieldX className="mx-auto mt-8 size-10 text-brand" aria-hidden="true" />
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight">Akses tidak tersedia</h1>
+        <h1 className="mt-4 text-3xl font-extrabold">Akses tidak tersedia</h1>
         <p className="mt-3 text-sm leading-6 text-ink-muted">
           Halaman ini hanya dapat dibuka oleh admin Kira Kira Michi.
         </p>

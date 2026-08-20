@@ -6,10 +6,10 @@ import { Clock3, Gift, Home, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
-  { href: "/loyalty", label: "Home", icon: Home },
-  { href: "/loyalty/rewards", label: "Rewards", icon: Gift },
-  { href: "/loyalty/history", label: "History", icon: Clock3 },
-  { href: "/loyalty/profile", label: "Profile", icon: UserRound },
+  { href: "/loyalty", label: "Beranda", icon: Home },
+  { href: "/loyalty/rewards", label: "Reward", icon: Gift },
+  { href: "/loyalty/history", label: "Riwayat", icon: Clock3 },
+  { href: "/loyalty/profile", label: "Profil", icon: UserRound },
 ] as const;
 
 function isCurrent(pathname: string, href: string) {
@@ -54,4 +54,3 @@ export function BottomNavigation() {
     </nav>
   );
 }
-

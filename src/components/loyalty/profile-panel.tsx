@@ -102,7 +102,7 @@ export function ProfilePanel({
               {initials(fullName)}
             </span>
             <div className="min-w-0">
-              <h2 className="truncate text-xl font-extrabold tracking-tight">{fullName}</h2>
+              <h2 className="truncate text-xl font-extrabold">{fullName}</h2>
               <p className="mt-1 truncate text-sm text-white/70">{email}</p>
               <Badge tone={marketingConsent ? "success" : "neutral"} className="mt-2">
                 Marketing {marketingConsent ? "aktif" : "nonaktif"}
@@ -279,7 +279,7 @@ export function ProfilePanel({
               </form>
             </div>
             <p className="mt-5 border-t border-line pt-4 text-xs leading-5 text-ink-muted">
-              Email akun dan role tidak dapat diubah dari halaman ini. Perubahan password diproses langsung oleh Supabase Auth.
+              Email akun dan tipe akses tidak dapat diubah dari halaman ini. Untuk bantuan akun, hubungi admin Kira Kira Michi.
             </p>
           </section>
         )}
@@ -287,4 +287,3 @@ export function ProfilePanel({
     </div>
   );
 }
-

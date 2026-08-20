@@ -99,6 +99,17 @@ export function getSupabaseEnv() {
   };
 }
 
+export function getSupabaseAdminEnv() {
+  const { url } = getSupabaseEnv();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!serviceRoleKey) {
+    throw new MissingSupabaseConfigurationError();
+  }
+
+  return { url, serviceRoleKey };
+}
+
 export function getSiteUrl() {
   return getConfiguredSiteUrl() ?? LOCAL_SITE_URL;
 }

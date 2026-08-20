@@ -1,19 +1,20 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
-  Check,
-  Gift,
+  BadgeJapaneseYen,
+  Origami,
   QrCode,
   ShieldCheck,
-  Sparkles,
+  Stamp,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Card } from "@/components/ui/card";
 
 const steps = [
   { icon: QrCode, title: "Scan & join", copy: "Masuk lewat QR atau link loyalty." },
-  { icon: Sparkles, title: "Kumpulkan stamp", copy: "Request +1 atau +2 setiap transaksi." },
-  { icon: Gift, title: "Buka reward", copy: "Selesaikan 8 stamp untuk lanjut ke card baru." },
+  { icon: Stamp, title: "Kumpulkan cap", copy: "Request +1 atau +2 setiap transaksi." },
+  { icon: BadgeJapaneseYen, title: "Buka reward", copy: "Selesaikan 8 cap untuk lanjut ke card baru." },
 ];
 
 export default function HomePage() {
@@ -32,10 +33,10 @@ export default function HomePage() {
       <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-16 pt-8 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:pb-24 lg:pt-16">
         <div>
           <span className="inline-flex items-center gap-2 rounded-full bg-warning-soft px-3 py-1.5 text-xs font-bold text-warning">
-            <Sparkles className="size-4" aria-hidden="true" /> Digital Loyalty Card
+            <Origami className="size-4" aria-hidden="true" /> Digital Loyalty Card
           </span>
-          <h1 className="mt-6 max-w-xl text-4xl font-extrabold leading-[1.08] tracking-[-0.04em] sm:text-6xl">
-            Stamp makin rapi. <span className="text-brand">Reward makin dekat.</span>
+          <h1 className="mt-6 max-w-xl text-4xl font-extrabold leading-[1.08] sm:text-6xl">
+            Cap makin penuh. <span className="text-brand">Reward makin dekat.</span>
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-ink-muted sm:text-lg">
             Simpan seluruh loyalty journey Kira Kira Michi langsung di ponselmu—tanpa takut kartunya tertinggal.
@@ -61,7 +62,6 @@ export default function HomePage() {
         </div>
 
         <div className="relative mx-auto w-full max-w-md lg:mr-0">
-          <div className="absolute -left-10 -top-8 size-36 rounded-full bg-accent/20 blur-3xl" />
           <Card className="relative overflow-hidden border-brand/15 p-5 sm:p-7">
             <div className="flex items-center justify-between">
               <div>
@@ -80,7 +80,7 @@ export default function HomePage() {
                       : "grid aspect-square place-items-center rounded-2xl border-2 border-dashed border-line bg-surface-muted text-ink-faint"
                   }
                 >
-                  {index < 5 ? <Sparkles className="size-6" aria-hidden="true" /> : <span className="size-2 rounded-full bg-line" />}
+                  {index < 5 ? <Image src="/kira-kira-michi-stamp-final.png" alt="" width={64} height={64} className="size-full object-contain" /> : <span className="size-2 rounded-full bg-line" />}
                 </span>
               ))}
             </div>
@@ -108,10 +108,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-5 py-8 text-xs text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <p>© 2026 Kira Kira Michi. Things I&apos;ve Always Wished to Have.</p>
-        <p className="flex items-center gap-1.5"><Check className="size-3.5 text-success" aria-hidden="true" /> 6 cards · 8 stamps per card</p>
-      </footer>
     </main>
   );
 }

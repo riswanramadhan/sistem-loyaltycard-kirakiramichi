@@ -1,9 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 import { ArrowLeft, CalendarDays, Gift, Mail, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
 import { getAdminCustomerDetail } from "@/app/admin/_lib/admin-data";
 import { CustomerAdjustmentActions, RedeemRewardAction, ReviewStampRequestActions } from "@/components/admin/action-controls";
+import { DeleteCustomerControl } from "@/components/admin/delete-customer-control";
 import {
   AdminPageHeader,
   CardStatusBadge,
@@ -91,12 +93,12 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
         eyebrow="Customer profile"
         title={profile.full_name?.trim() || "Customer tanpa nama"}
         description="Profil lengkap, perjalanan loyalty, request, stamp ledger, reward, dan koreksi admin."
-        actions={
+        actions={<>
           <Link href="/admin/customers" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-white px-3.5 text-sm font-bold text-ink hover:border-brand/40 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            Semua customer
+            <ArrowLeft className="size-4" aria-hidden="true" /> Semua customer
           </Link>
-        }
+          <DeleteCustomerControl customerId={profile.id} customerName={profile.full_name?.trim() || "customer ini"} />
+        </>}
       />
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.65fr)]" aria-label="Informasi customer">
@@ -159,7 +161,9 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
                 </div>
                 <div className="mt-4 grid grid-cols-8 gap-1.5" role="img" aria-label={`${card.stamps_count} dari 8 stamp terkumpul`}>
                   {Array.from({ length: 8 }, (_, index) => (
-                    <span key={index} className={cn("aspect-square rounded-full border", index < card.stamps_count ? "border-brand bg-brand" : "border-line bg-white")} />
+                    <span key={index} className={cn("grid aspect-square place-items-center rounded-full border", index < card.stamps_count ? "border-brand/20 bg-brand-soft" : "border-line bg-white")}>
+                      {index < card.stamps_count ? <Image src="/kira-kira-michi-stamp-final.png" alt="" width={32} height={32} className="size-full object-contain" /> : null}
+                    </span>
                   ))}
                 </div>
                 <p className="mt-3 text-xs font-bold text-ink-muted">{card.stamps_count}/8 stamp{card.completed_at ? ` · selesai ${formatAdminDate(card.completed_at, false)}` : ""}</p>

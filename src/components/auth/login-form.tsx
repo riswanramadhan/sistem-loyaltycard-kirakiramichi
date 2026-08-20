@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowRight, Fingerprint, LoaderCircle } from "lucide-react";
 import { loginAction, type AuthState } from "@/app/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
@@ -26,6 +26,14 @@ export function LoginForm({ next = "/loyalty" }: { next?: string }) {
       <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <>Masuk <ArrowRight className="size-5" aria-hidden="true" /></>}
       </Button>
+      {next.startsWith("/admin") ? (
+        <Link
+          href="/auth/admin-login"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink hover:border-brand/40 hover:bg-brand-soft"
+        >
+          <Fingerprint className="size-4" aria-hidden="true" /> Masuk admin lewat link email
+        </Link>
+      ) : null}
       <p className="text-center text-sm text-ink-muted">Belum punya akun? <Link href="/auth/register" className="font-bold text-brand hover:underline">Daftar</Link></p>
     </form>
   );

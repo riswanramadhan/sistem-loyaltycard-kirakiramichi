@@ -12,14 +12,14 @@ export function PageHeading({
   action?: ReactNode;
 }) {
   return (
-    <header className="flex items-end justify-between gap-4">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
           <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.18em] text-brand">
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-balance text-2xl font-extrabold tracking-[-0.035em] text-ink sm:text-3xl">
+        <h1 className="text-balance text-2xl font-extrabold text-ink sm:text-3xl">
           {title}
         </h1>
         {description ? (
@@ -28,8 +28,7 @@ export function PageHeading({
           </p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="w-full sm:w-auto">{action}</div> : null}
     </header>
   );
 }
-
