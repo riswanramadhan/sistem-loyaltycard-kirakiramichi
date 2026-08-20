@@ -16,7 +16,7 @@ function StampSeal({ latest }: { latest: boolean }) {
       aria-hidden="true"
     >
       <Image
-        src="/kira-kira-michi-stamp-final.png"
+        src="/kira-kira-michi-stamp-red.png"
         alt=""
         width={64}
         height={64}

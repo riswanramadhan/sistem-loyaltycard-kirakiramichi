@@ -162,7 +162,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
                 <div className="mt-4 grid grid-cols-8 gap-1.5" role="img" aria-label={`${card.stamps_count} dari 8 stamp terkumpul`}>
                   {Array.from({ length: 8 }, (_, index) => (
                     <span key={index} className={cn("grid aspect-square place-items-center rounded-full border", index < card.stamps_count ? "border-brand/20 bg-brand-soft" : "border-line bg-white")}>
-                      {index < card.stamps_count ? <Image src="/kira-kira-michi-stamp-final.png" alt="" width={32} height={32} className="size-full object-contain" /> : null}
+                      {index < card.stamps_count ? <Image src="/kira-kira-michi-stamp-red.png" alt="" width={32} height={32} className="size-full object-contain" /> : null}
                     </span>
                   ))}
                 </div>

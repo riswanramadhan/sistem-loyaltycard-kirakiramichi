@@ -1,4 +1,5 @@
-import { MessageCircleHeart, Origami } from "lucide-react";
+import { Origami } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { BrandLogo } from "@/components/brand-logo";
 import { Card } from "@/components/ui/card";
 
@@ -16,7 +17,7 @@ export default function ConfigurationPage() {
             Chotto matte, ya. Tim kami sedang menyiapkan loyalty agar bisa dipakai dengan lancar.
           </p>
           <a href="https://wa.me/6289529974959" target="_blank" rel="noreferrer" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white">
-            <MessageCircleHeart className="size-4" aria-hidden="true" /> Hubungi admin
+            <SiWhatsapp className="size-4" aria-hidden="true" /> Hubungi admin
           </a>
         </Card>
       </section>

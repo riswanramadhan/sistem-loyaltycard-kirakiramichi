@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Camera, Gift, MessageCircleHeart, Sparkles } from "lucide-react";
+import { ArrowRight, Gift, Sparkles } from "lucide-react";
+import { SiInstagram, SiWhatsapp } from "react-icons/si";
 import { LoyaltyJourney } from "@/components/loyalty/loyalty-journey";
 import { firstName } from "@/components/loyalty/format";
 import type { LoyaltyCardStatus, LoyaltyCardView } from "@/components/loyalty/types";
@@ -224,11 +225,11 @@ export default async function LoyaltyPage() {
           <p className="mt-1 text-xs leading-5 text-ink-muted">Hub admin aja, santai. Kita bantu sampai beres.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="https://wa.me/6289529974959" target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-soft px-3 text-xs font-extrabold text-brand hover:bg-brand hover:text-white">
-            <MessageCircleHeart className="size-4" aria-hidden="true" /> 089529974959
+          <a href="https://wa.me/6289529974959" target="_blank" rel="noreferrer" aria-label="Hubungi Kira Kira Michi melalui WhatsApp di 089529974959" className="group inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-soft px-3 text-xs font-extrabold text-brand hover:bg-brand hover:text-white">
+            <SiWhatsapp className="size-4 text-[#25d366] group-hover:text-white" aria-hidden="true" /> 089529974959
           </a>
-          <a href="https://www.instagram.com/kirakiramichi.merchandise" target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-surface-muted px-3 text-xs font-extrabold text-ink hover:bg-ink hover:text-white">
-            <Camera className="size-4" aria-hidden="true" /> Follow IG
+          <a href="https://www.instagram.com/kirakiramichi.merchandise" target="_blank" rel="noreferrer" aria-label="Buka Instagram kirakiramichi.merchandise" className="group inline-flex min-h-10 items-center gap-2 rounded-xl bg-surface-muted px-3 text-xs font-extrabold text-ink hover:bg-ink hover:text-white">
+            <SiInstagram className="size-4 text-[#e4405f] group-hover:text-white" aria-hidden="true" /> kirakiramichi.merchandise
           </a>
         </div>
       </aside>
