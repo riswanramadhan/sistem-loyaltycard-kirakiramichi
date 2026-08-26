@@ -2,7 +2,7 @@ import { SiInstagram, SiWhatsapp } from "react-icons/si";
 
 export function CustomerSupport() {
   return (
-    <aside className="mx-auto w-full max-w-5xl px-4 pb-3 sm:px-6 sm:pb-4" aria-label="Bantuan dan order Kira Kira Michi">
+    <aside className="mx-auto w-full max-w-5xl px-4 pb-1 sm:px-6 sm:pb-2" aria-label="Bantuan dan order Kira Kira Michi">
       <div className="flex flex-col items-center gap-4 rounded-2xl border border-line bg-white p-4 text-center sm:flex-row sm:justify-between sm:p-5 sm:text-left">
         <div className="max-w-md">
           <p className="font-extrabold text-ink">Mau order atau ada kendala?</p>

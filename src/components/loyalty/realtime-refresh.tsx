@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { BadgeJapaneseYen, CloudRainWind, PartyPopper, Stamp } from "lucide-react";
@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type ToastKind = "approved" | "rejected" | "completed" | "reward";
-type ToastState = { kind: ToastKind; sequence: number };
+type ToastState = { kind: ToastKind; sequence: number; quantity?: number };
 
 const feedback = {
   approved: { title: "Yatta! Stamp sudah masuk", copy: "Stamp baru berhasil ditambahkan ke card kamu.", priority: 2 },
@@ -44,69 +44,121 @@ export function RealtimeRefresh({ userId }: { userId: string }) {
   const [, startTransition] = useTransition();
   const [toast, setToast] = useState<ToastState | null>(null);
   const hideTimer = useRef<number | null>(null);
-  const refreshTimer = useRef<number | null>(null);
+  const burstTimer = useRef<number | null>(null);
+  const trailingTimer = useRef<number | null>(null);
   const activePriority = useRef(0);
   const sequence = useRef(0);
+  const announcedRequests = useRef(new Set<string>());
+  const celebratedRequests = useRef(new Set<string>());
+
+  const refreshAuthoritativeState = useCallback(() => {
+    startTransition(() => router.refresh());
+  }, [router]);
+
+  const reconcile = useCallback(() => {
+    if (!burstTimer.current) {
+      refreshAuthoritativeState();
+      burstTimer.current = window.setTimeout(() => {
+        burstTimer.current = null;
+      }, 120);
+    }
+
+    if (trailingTimer.current) window.clearTimeout(trailingTimer.current);
+    trailingTimer.current = window.setTimeout(() => {
+      refreshAuthoritativeState();
+      trailingTimer.current = null;
+    }, 260);
+  }, [refreshAuthoritativeState]);
+
+  const announce = useCallback((kind: ToastKind, quantity?: number) => {
+    if (feedback[kind].priority < activePriority.current) {
+      reconcile();
+      return;
+    }
+
+    activePriority.current = feedback[kind].priority;
+    sequence.current += 1;
+    setToast({ kind, quantity, sequence: sequence.current });
+    if (hideTimer.current) window.clearTimeout(hideTimer.current);
+    hideTimer.current = window.setTimeout(() => {
+      activePriority.current = 0;
+      setToast(null);
+    }, 5000);
+    reconcile();
+  }, [reconcile]);
 
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(`my-loyalty-${userId}`);
 
-    const refresh = () => {
-      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
-      refreshTimer.current = window.setTimeout(() => {
-        startTransition(() => router.refresh());
-      }, 80);
-    };
-
-    const announce = (kind: ToastKind) => {
-      if (feedback[kind].priority < activePriority.current) {
-        refresh();
-        return;
-      }
-
-      activePriority.current = feedback[kind].priority;
-      sequence.current += 1;
-      setToast({ kind, sequence: sequence.current });
-      if (hideTimer.current) window.clearTimeout(hideTimer.current);
-      hideTimer.current = window.setTimeout(() => {
-        activePriority.current = 0;
-        setToast(null);
-      }, 5000);
-      refresh();
-    };
-
     channel
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stamp_requests", filter: `user_id=eq.${userId}` }, (payload) => {
-        const next = payload.new as { status?: string };
-        if (next.status === "approved") announce("approved");
-        else if (next.status === "rejected") announce("rejected");
-        else refresh();
+        const next = payload.new as { id?: string; status?: string; approved_count?: number; requested_count?: number };
+        const requestKey = next.id ? `request:${next.id}` : null;
+        if (next.status === "approved") {
+          if (!requestKey || !announcedRequests.current.has(requestKey)) {
+            if (requestKey) announcedRequests.current.add(requestKey);
+            announce("approved", Math.max(1, next.approved_count ?? 1));
+          } else reconcile();
+        } else if (next.status === "rejected") {
+          if (!requestKey || !announcedRequests.current.has(requestKey)) {
+            if (requestKey) announcedRequests.current.add(requestKey);
+            announce("rejected", next.requested_count ?? 1);
+          } else reconcile();
+        } else reconcile();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "stamp_events", filter: `user_id=eq.${userId}` }, (payload) => {
-        const event = payload.new as { event_type?: string; quantity?: number };
+        const event = payload.new as { id?: string; stamp_request_id?: string | null; event_type?: string; quantity?: number };
         if (event.event_type === "grant") {
-          launchStampConfetti(Math.abs(event.quantity ?? 1));
-          announce("approved");
+          const quantity = Math.max(1, Math.abs(event.quantity ?? 1));
+          const requestKey = event.stamp_request_id
+            ? `request:${event.stamp_request_id}`
+            : `event:${event.id ?? sequence.current + 1}`;
+          if (!celebratedRequests.current.has(requestKey)) {
+            celebratedRequests.current.add(requestKey);
+            launchStampConfetti(quantity);
+          }
+          if (!announcedRequests.current.has(requestKey)) {
+            announcedRequests.current.add(requestKey);
+            announce("approved", quantity);
+          } else reconcile();
         } else {
-          refresh();
+          reconcile();
         }
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_cards" }, reconcile)
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_programs", filter: `user_id=eq.${userId}` }, reconcile)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, reconcile)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reward_redemptions", filter: `user_id=eq.${userId}` }, () => {
         launchCompletionConfetti();
         announce("completed");
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "reward_redemptions", filter: `user_id=eq.${userId}` }, () => announce("reward"))
-      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_programs" }, refresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_card_definitions" }, refresh)
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_programs" }, reconcile)
+      .on("postgres_changes", { event: "*", schema: "public", table: "loyalty_card_definitions" }, reconcile)
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          refreshAuthoritativeState();
+        }
+      });
+
+    const reconcileWhenVisible = () => {
+      if (document.visibilityState === "visible") refreshAuthoritativeState();
+    };
+    window.addEventListener("online", refreshAuthoritativeState);
+    window.addEventListener("focus", refreshAuthoritativeState);
+    document.addEventListener("visibilitychange", reconcileWhenVisible);
 
     return () => {
+      window.removeEventListener("online", refreshAuthoritativeState);
+      window.removeEventListener("focus", refreshAuthoritativeState);
+      document.removeEventListener("visibilitychange", reconcileWhenVisible);
       if (hideTimer.current) window.clearTimeout(hideTimer.current);
-      if (refreshTimer.current) window.clearTimeout(refreshTimer.current);
+      if (burstTimer.current) window.clearTimeout(burstTimer.current);
+      if (trailingTimer.current) window.clearTimeout(trailingTimer.current);
       void supabase.removeChannel(channel);
     };
-  }, [router, startTransition, userId]);
+  }, [announce, reconcile, refreshAuthoritativeState, userId]);
 
   const kind = toast?.kind;
   return (
@@ -116,7 +168,7 @@ export function RealtimeRefresh({ userId }: { userId: string }) {
           <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl", kind === "rejected" ? "animate-sad-drift bg-danger-soft text-danger" : "animate-happy-bounce bg-success-soft text-success")}>
             {kind === "rejected" ? <CloudRainWind className="size-5" aria-hidden="true" /> : kind === "completed" ? <PartyPopper className="size-5" aria-hidden="true" /> : kind === "reward" ? <BadgeJapaneseYen className="size-5" aria-hidden="true" /> : <Stamp className="size-5" aria-hidden="true" />}
           </span>
-          <span className="min-w-0"><strong className="block font-extrabold">{feedback[kind].title}</strong><span className="mt-0.5 block text-xs leading-5 text-ink-muted">{feedback[kind].copy}</span></span>
+          <span className="min-w-0"><strong className="block font-extrabold">{kind === "approved" && toast.quantity ? `Yatta! +${toast.quantity} stamp sudah masuk` : feedback[kind].title}</strong><span className="mt-0.5 block text-xs leading-5 text-ink-muted">{kind === "approved" && toast.quantity === 2 ? "Dua stamp baru langsung ditambahkan ke card kamu." : feedback[kind].copy}</span></span>
           <span className={cn("notification-progress absolute inset-x-0 bottom-0 h-1 origin-left", kind === "rejected" ? "bg-danger" : "bg-success")} aria-hidden="true" />
         </div>
       ) : null}

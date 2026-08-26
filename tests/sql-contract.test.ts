@@ -13,6 +13,7 @@ const realtime = migration("20260814000500_loyalty_realtime.sql");
 const adminAccounts = migration("20260820000100_admin_account_management.sql");
 const realtimeAndAdminTransition = migration("20260826000100_realtime_and_admin_transition.sql");
 const customerDelete = migration("20260827000100_admin_customer_delete_rpc.sql");
+const completeRealtime = migration("20260827000200_complete_realtime_publication.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -104,12 +105,16 @@ describe("Supabase migration contract", () => {
       expect(realtime).toContain(`alter table public.${table} replica identity full`);
       expect(realtime).toContain(`alter publication supabase_realtime add table public.${table}`);
     }
-    expect(realtime).not.toContain("add table public.profiles");
     expect(realtime).toContain("supabase_realtime_publication_missing");
     for (const table of ["stamp_events", "loyalty_programs", "loyalty_card_definitions"]) {
       expect(realtimeAndAdminTransition).toContain(`alter table public.${table} replica identity full`);
     }
     expect(realtimeAndAdminTransition).toContain("alter publication supabase_realtime add table public.%i");
+    for (const table of ["profiles", "member_programs"]) {
+      expect(completeRealtime).toContain(`alter table public.${table} replica identity full`);
+    }
+    expect(completeRealtime).toContain("array['profiles', 'member_programs']");
+    expect(completeRealtime).toContain("alter publication supabase_realtime add table public.%i");
   });
 
   it("keeps admin creation and complete customer deletion role checked", () => {

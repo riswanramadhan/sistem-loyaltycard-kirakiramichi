@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminRealtime } from "@/components/admin/admin-realtime";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -17,6 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <main className="min-w-0 pb-24 print:bg-white lg:pb-0">
         <div className="mx-auto w-full max-w-[100rem] px-4 py-5 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">{children}</div>
       </main>
+      <AdminRealtime adminId={profile.id} />
     </div>
   );
 }

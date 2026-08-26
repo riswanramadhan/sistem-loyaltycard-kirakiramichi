@@ -16,6 +16,7 @@ import {
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { Field, TextareaField } from "@/components/ui/field";
 import { StatusMessage } from "@/components/ui/status-message";
+import { ADMIN_FEEDBACK_EVENT } from "@/lib/admin-feedback";
 
 const initialState: AdminActionState = { status: "idle", message: "" };
 
@@ -49,16 +50,25 @@ function DialogCloseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function useActionDialog(state: AdminActionState) {
+function useActionDialog(
+  state: AdminActionState,
+  feedbackKind?: "approved" | "rejected",
+  feedbackQuantity?: number,
+) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (state.status === "success") {
+      if (feedbackKind && feedbackQuantity !== undefined) {
+        window.dispatchEvent(new CustomEvent(ADMIN_FEEDBACK_EVENT, {
+          detail: { kind: feedbackKind, quantity: feedbackQuantity, message: state.message },
+        }));
+      }
       dialogRef.current?.close();
       router.refresh();
     }
-  }, [router, state.status]);
+  }, [feedbackKind, feedbackQuantity, router, state.message, state.status]);
 
   return {
     dialogRef,
@@ -79,11 +89,15 @@ function ReviewDialog({
   mode: "approve" | "partial" | "reject";
 }) {
   const [state, formAction] = useActionState(reviewStampRequestAction, initialState);
-  const { dialogRef, open, close } = useActionDialog(state);
   const titleId = useId();
   const isReject = mode === "reject";
   const isPartial = mode === "partial";
   const approvedCount = isReject ? 0 : isPartial ? 1 : requestedCount;
+  const { dialogRef, open, close } = useActionDialog(
+    state,
+    isReject ? "rejected" : "approved",
+    approvedCount,
+  );
 
   const trigger = isReject ? (
     <Button size="sm" variant="ghost" onClick={open}>Tolak</Button>
