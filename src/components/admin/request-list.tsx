@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageCircle } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import type { AdminRequestView } from "@/app/admin/_lib/admin-data";
 import { Card } from "@/components/ui/card";
 import { ReviewStampRequestActions } from "@/components/admin/action-controls";
@@ -22,7 +22,7 @@ function CustomerIdentity({ request }: { request: AdminRequestView }) {
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
         {waLink ? (
           <a href={waLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-brand hover:underline">
-            <MessageCircle className="size-3.5" aria-hidden="true" />
+            <SiWhatsapp className="size-3.5 text-[#25d366]" aria-hidden="true" />
             {request.whatsapp}
           </a>
         ) : (

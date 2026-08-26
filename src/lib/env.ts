@@ -12,6 +12,7 @@ export class InvalidSiteConfigurationError extends Error {
   }
 }
 
+export const PRODUCTION_SITE_URL = "https://kirakiraloyaltycard.web.id";
 const LOCAL_SITE_URL = "http://localhost:3000";
 
 function isLoopbackHost(hostname: string) {
@@ -111,5 +112,6 @@ export function getSupabaseAdminEnv() {
 }
 
 export function getSiteUrl() {
-  return getConfiguredSiteUrl() ?? LOCAL_SITE_URL;
+  return getConfiguredSiteUrl() ??
+    (process.env.NODE_ENV === "production" ? PRODUCTION_SITE_URL : LOCAL_SITE_URL);
 }

@@ -1,10 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ArrowRight, Gift, QrCode, Sparkles } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Card } from "@/components/ui/card";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Join Loyalty",
+  description: "Gabung Kira Kira Michi Digital Loyalty Card dan mulai kumpulkan stamp.",
+  alternates: { canonical: "/join" },
+};
 
 export default async function JoinPage() {
   const user = await getCurrentUser();

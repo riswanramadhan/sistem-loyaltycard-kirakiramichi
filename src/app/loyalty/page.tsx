@@ -1,64 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Gift, Sparkles } from "lucide-react";
-import { SiInstagram, SiWhatsapp } from "react-icons/si";
 import { LoyaltyJourney } from "@/components/loyalty/loyalty-journey";
 import { firstName } from "@/components/loyalty/format";
 import type { LoyaltyCardStatus, LoyaltyCardView } from "@/components/loyalty/types";
-import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { getMyLoyaltyState } from "@/lib/loyalty/my-loyalty-state";
 
 export const metadata: Metadata = {
   title: "Loyalty",
 };
 
-type ProgramRow = {
-  id: string;
-  name: string;
-  total_cards: number;
-  stamps_per_card: number;
-};
-
-type MembershipRow = {
-  id: string;
-  status: string;
-  joined_at: string;
-  completed_at: string | null;
-};
-
-type DefinitionRow = {
-  title: string | null;
-  description: string | null;
-  reward_title: string | null;
-  reward_description: string | null;
-  reward_terms: string | null;
-};
-
-type MemberCardRow = {
-  id: string;
-  sequence_no: number;
-  status: string;
-  stamps_count: number;
-  definition: DefinitionRow | DefinitionRow[] | null;
-};
-
-type PendingRequestRow = {
-  member_card_id: string;
-  requested_count: number;
-};
-
-type StampEventRow = {
-  member_card_id: string;
-  quantity: number;
-};
-
 function cardStatus(value: string): LoyaltyCardStatus {
   if (value === "active" || value === "completed") return value;
   return "locked";
-}
-
-function oneDefinition(value: DefinitionRow | DefinitionRow[] | null) {
-  return Array.isArray(value) ? value[0] ?? null : value;
 }
 
 function MembershipEmpty({ name }: { name: string }) {
@@ -82,26 +36,11 @@ function MembershipEmpty({ name }: { name: string }) {
 }
 
 export default async function LoyaltyPage() {
-  const user = await requireUser();
-  const supabase = await createClient();
+  const state = await getMyLoyaltyState();
+  const name = firstName(state.profile?.full_name);
+  const program = state.program;
 
-  const [{ data: profile, error: profileError }, { data: programData, error: programError }] =
-    await Promise.all([
-      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
-      supabase
-        .from("loyalty_programs")
-        .select("id, name, total_cards, stamps_per_card")
-        .eq("slug", "kira-kira-michi-loyalty")
-        .eq("is_active", true)
-        .maybeSingle(),
-    ]);
-
-  if (profileError || programError) throw new Error("LOYALTY_DATA_UNAVAILABLE");
-
-  const name = firstName((profile as { full_name?: string | null } | null)?.full_name);
-  const program = programData as ProgramRow | null;
-
-  if (!program) {
+  if (!program || !program.is_active) {
     return (
       <section className="py-8 text-center">
         <h1 className="text-2xl font-extrabold text-ink">Program sedang disiapkan</h1>
@@ -112,57 +51,15 @@ export default async function LoyaltyPage() {
     );
   }
 
-  const { data: membershipData, error: membershipError } = await supabase
-    .from("member_programs")
-    .select("id, status, joined_at, completed_at")
-    .eq("program_id", program.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (membershipError) throw new Error("LOYALTY_DATA_UNAVAILABLE");
-  const membership = membershipData as MembershipRow | null;
+  const membership = state.member_program;
 
   if (!membership) return <MembershipEmpty name={name} />;
 
-  const [cardsResult, requestsResult, latestEventResult] = await Promise.all([
-    supabase
-      .from("member_cards")
-      .select(
-        "id, sequence_no, status, stamps_count, definition:loyalty_card_definitions(title, description, reward_title, reward_description, reward_terms)",
-      )
-      .eq("member_program_id", membership.id)
-      .order("sequence_no", { ascending: true }),
-    supabase
-      .from("stamp_requests")
-      .select("member_card_id, requested_count")
-      .eq("user_id", user.id)
-      .eq("status", "pending"),
-    supabase
-      .from("stamp_events")
-      .select("member_card_id, quantity")
-      .eq("user_id", user.id)
-      .eq("event_type", "grant")
-      .order("created_at", { ascending: false })
-      .limit(1),
-  ]);
-
-  if (cardsResult.error || requestsResult.error || latestEventResult.error) {
-    throw new Error("LOYALTY_DATA_UNAVAILABLE");
-  }
-
-  const pendingByCard = new Map<string, number>();
-  for (const request of (requestsResult.data ?? []) as PendingRequestRow[]) {
-    pendingByCard.set(
-      request.member_card_id,
-      (pendingByCard.get(request.member_card_id) ?? 0) + request.requested_count,
-    );
-  }
-  const hasAnyPendingRequest = pendingByCard.size > 0;
-
-  const latestEvent = ((latestEventResult.data ?? []) as StampEventRow[])[0] ?? null;
-  const cards: LoyaltyCardView[] = ((cardsResult.data ?? []) as MemberCardRow[]).map((row) => {
-    const definition = oneDefinition(row.definition);
-    const pendingCount = pendingByCard.get(row.id) ?? 0;
+  const hasAnyPendingRequest = state.requests.some((request) => request.status === "pending");
+  const latestEvent = state.stamp_events.find((event) => event.event_type === "grant") ?? null;
+  const cards: LoyaltyCardView[] = state.cards.map((row) => {
+    const definition = row.definition;
+    const pendingCount = row.pending_request?.requested_count ?? 0;
     return {
       id: row.id,
       sequenceNo: row.sequence_no,
@@ -196,9 +93,10 @@ export default async function LoyaltyPage() {
       <section className="relative overflow-hidden rounded-[1.75rem] border border-ink bg-ink p-5 text-white shadow-[0_16px_44px_rgba(43,39,40,0.14)] sm:p-7">
         <div className="relative flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-accent">Kira Kira Michi</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-accent">{program.name}</p>
             <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Okaeri, {name}!</h1>
             <p className="mt-2 max-w-md text-sm leading-6 text-white/75">{subcopy}</p>
+            {program.description ? <p className="mt-1 max-w-md text-xs leading-5 text-white/55">{program.description}</p> : null}
           </div>
           <Link
             href="/loyalty/rewards"
@@ -218,21 +116,6 @@ export default async function LoyaltyPage() {
           </span>
         </div>
       </section>
-
-      <aside className="mt-5 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Kontak Kira Kira Michi">
-        <div>
-          <p className="font-extrabold text-ink">Mau order atau ada kendala?</p>
-          <p className="mt-1 text-xs leading-5 text-ink-muted">Hub admin aja, santai. Kita bantu sampai beres.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <a href="https://wa.me/6289529974959" target="_blank" rel="noreferrer" aria-label="Hubungi Kira Kira Michi melalui WhatsApp di 089529974959" className="group inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand-soft px-3 text-xs font-extrabold text-brand hover:bg-brand hover:text-white">
-            <SiWhatsapp className="size-4 text-[#25d366] group-hover:text-white" aria-hidden="true" /> 089529974959
-          </a>
-          <a href="https://www.instagram.com/kirakiramichi.merchandise" target="_blank" rel="noreferrer" aria-label="Buka Instagram kirakiramichi.merchandise" className="group inline-flex min-h-10 items-center gap-2 rounded-xl bg-surface-muted px-3 text-xs font-extrabold text-ink hover:bg-ink hover:text-white">
-            <SiInstagram className="size-4 text-[#e4405f] group-hover:text-white" aria-hidden="true" /> kirakiramichi.merchandise
-          </a>
-        </div>
-      </aside>
 
       {cards.length > 0 ? (
         <LoyaltyJourney cards={cards} />

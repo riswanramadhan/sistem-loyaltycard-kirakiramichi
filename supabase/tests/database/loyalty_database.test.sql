@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select extensions.plan(100);
+select extensions.plan(108);
 
 -- Required schema and deletion semantics.
 select extensions.has_table('public', 'profiles', 'profiles exists');
@@ -47,12 +47,19 @@ select extensions.ok(
     where p.pubname = 'supabase_realtime'
       and (
         p.puballtables
-        or 3 = (
+        or 6 = (
           select count(*)
           from pg_catalog.pg_publication_tables as pt
           where pt.pubname = p.pubname
             and pt.schemaname = 'public'
-            and pt.tablename in ('member_cards', 'stamp_requests', 'reward_redemptions')
+            and pt.tablename in (
+              'member_cards',
+              'stamp_requests',
+              'stamp_events',
+              'reward_redemptions',
+              'loyalty_programs',
+              'loyalty_card_definitions'
+            )
         )
       )
   ),
@@ -112,6 +119,11 @@ values
     '40000000-0000-4000-8000-000000000003',
     'admin@example.test',
     '{"full_name":"Test Admin","role":"admin"}'::jsonb
+  ),
+  (
+    '40000000-0000-4000-8000-000000000004',
+    'previous-admin@example.test',
+    '{"full_name":"Previous Admin"}'::jsonb
   );
 
 -- Auth metadata cannot self-promote.
@@ -123,7 +135,10 @@ select extensions.is(
 
 update public.profiles
 set role = 'admin'
-where id = '40000000-0000-4000-8000-000000000003';
+where id in (
+  '40000000-0000-4000-8000-000000000003',
+  '40000000-0000-4000-8000-000000000004'
+);
 
 select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000001', true);
 select set_config('request.jwt.claim.role', 'authenticated', true);
@@ -695,6 +710,62 @@ select extensions.ok(
 );
 
 select extensions.lives_ok(
+  $$
+    select public.admin_update_card_definition(
+      '31000000-0000-4000-8000-000000000001',
+      'Test Card 1',
+      null,
+      'Test Reward 1',
+      null,
+      null,
+      45,
+      true
+    )
+  $$,
+  'admin can change the expiry window for an existing reward definition'
+);
+select extensions.is(
+  (
+    select expires_at
+    from public.reward_redemptions
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and status = 'available'
+  ),
+  (
+    select available_at + interval '45 days'
+    from public.reward_redemptions
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and status = 'available'
+  ),
+  'edited expiry days propagate to the customer available reward'
+);
+select extensions.lives_ok(
+  $$
+    select public.admin_update_card_definition(
+      '31000000-0000-4000-8000-000000000001',
+      'Test Card 1',
+      null,
+      'Test Reward 1',
+      null,
+      null,
+      null,
+      true
+    )
+  $$,
+  'admin can remove the expiry window from an existing reward definition'
+);
+select extensions.is(
+  (
+    select expires_at
+    from public.reward_redemptions
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and status = 'available'
+  ),
+  null::timestamptz,
+  'removing expiry days immediately removes the available reward deadline'
+);
+
+select extensions.lives_ok(
   format(
     'select public.adjust_member_stamps(%L::uuid, 1::smallint, %L)',
     (
@@ -1049,8 +1120,91 @@ select extensions.is(
   'completed journey leaves no unresolved request'
 );
 
+-- Initial-admin retirement preserves immutable audit history by transferring
+-- every actor reference to the verified replacement admin.
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000002', true);
+select public.join_loyalty_program('database-test-loyalty');
+select public.request_stamps(
+  (
+    select mc.id
+    from public.member_cards as mc
+    join public.member_programs as mp on mp.id = mc.member_program_id
+    where mp.user_id = '40000000-0000-4000-8000-000000000002'
+      and mc.status = 'active'
+  ),
+  1::smallint,
+  null
+);
+
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000004', true);
+select public.review_stamp_request(
+  (
+    select id
+    from public.stamp_requests
+    where user_id = '40000000-0000-4000-8000-000000000002'
+      and status = 'pending'
+  ),
+  'approve',
+  1::smallint,
+  'Reviewed by previous admin'
+);
+insert into public.reward_redemptions (
+  member_card_id,
+  user_id,
+  status,
+  redeemed_at,
+  redeemed_by,
+  note
+)
+select
+  mc.id,
+  mp.user_id,
+  'redeemed',
+  statement_timestamp(),
+  '40000000-0000-4000-8000-000000000004',
+  'Admin transition fixture'
+from public.member_cards as mc
+join public.member_programs as mp on mp.id = mc.member_program_id
+where mp.user_id = '40000000-0000-4000-8000-000000000002'
+  and mc.sequence_no = 2;
+
+update auth.users
+set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object(
+  'admin_replacement_id',
+  '40000000-0000-4000-8000-000000000003'
+)
+where id = '40000000-0000-4000-8000-000000000004';
+
+select extensions.lives_ok(
+  $$ delete from auth.users where id = '40000000-0000-4000-8000-000000000004' $$,
+  'previous admin can be retired after a verified replacement is assigned'
+);
+select extensions.is(
+  (select count(*) from auth.users where id = '40000000-0000-4000-8000-000000000004'),
+  0::bigint,
+  'previous admin auth account is removed'
+);
+select extensions.is(
+  (
+    (select count(*) from public.stamp_requests where reviewed_by = '40000000-0000-4000-8000-000000000004')
+    + (select count(*) from public.stamp_events where created_by = '40000000-0000-4000-8000-000000000004')
+    + (select count(*) from public.reward_redemptions where redeemed_by = '40000000-0000-4000-8000-000000000004')
+  ),
+  0::bigint,
+  'retired admin leaves no dangling audit actor references'
+);
+select extensions.is(
+  (
+    (select count(*) from public.stamp_requests where user_id = '40000000-0000-4000-8000-000000000002' and reviewed_by = '40000000-0000-4000-8000-000000000003')
+    + (select count(*) from public.stamp_events where user_id = '40000000-0000-4000-8000-000000000002' and created_by = '40000000-0000-4000-8000-000000000003')
+    + (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000002' and redeemed_by = '40000000-0000-4000-8000-000000000003')
+  ),
+  3::bigint,
+  'replacement admin owns every transferred request, ledger, and reward audit reference'
+);
+
 -- Admin API deletion invokes the auth trigger and leaves no customer data behind.
-select set_config('request.jwt.claim.sub', '50000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000003', true);
 select extensions.lives_ok(
   $$ select public.admin_prepare_customer_deletion('40000000-0000-4000-8000-000000000001') $$,
   'admin can authorize complete customer deletion'

@@ -2,15 +2,14 @@ import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { BottomNavigation } from "@/components/loyalty/bottom-navigation";
 import { RealtimeRefresh } from "@/components/loyalty/realtime-refresh";
+import { CustomerSupport } from "@/components/loyalty/customer-support";
 
 export function CustomerShell({
   children,
   userId,
-  memberCardIds,
 }: {
   children: ReactNode;
   userId: string;
-  memberCardIds: string[];
 }) {
   return (
     <div className="min-h-svh pb-24">
@@ -38,9 +37,10 @@ export function CustomerShell({
         {children}
       </main>
 
+      <CustomerSupport />
+
       <BottomNavigation />
-      <RealtimeRefresh userId={userId} memberCardIds={memberCardIds} />
+      <RealtimeRefresh userId={userId} />
     </div>
   );
 }
-

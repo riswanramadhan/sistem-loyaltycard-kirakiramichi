@@ -11,7 +11,7 @@ export default function AdminLoginPage() {
   return (
     <AuthShell
       title="Okaeri, admin-san"
-      description="Masuk ke workspace admin lewat link aman yang dikirim ke email."
+      description="Masuk ke workspace admin dengan kode OTP enam digit yang dikirim ke email."
     >
       <AdminLinkLoginForm />
     </AuthShell>

@@ -4,3 +4,22 @@ project_id = "sistem-kirakiramichi"
 enabled = true
 sql_paths = ["./seed.sql"]
 
+[auth.email.template.confirmation]
+subject = "{{ .Token }} adalah kode verifikasi Kira Kira Michi"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "{{ .Token }} adalah kode login admin Kira Kira Michi"
+content_path = "./supabase/templates/magic-link.html"
+
+[auth.email.template.recovery]
+subject = "Atur ulang password Kira Kira Michi"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.invite]
+subject = "Undangan admin Kira Kira Michi"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "Konfirmasi email baru Kira Kira Michi"
+content_path = "./supabase/templates/email-change.html"

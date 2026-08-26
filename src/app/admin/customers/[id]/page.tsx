@@ -2,7 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
-import { ArrowLeft, CalendarDays, Gift, Mail, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, Gift, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { getAdminCustomerDetail } from "@/app/admin/_lib/admin-data";
 import { CustomerAdjustmentActions, RedeemRewardAction, ReviewStampRequestActions } from "@/components/admin/action-controls";
 import { DeleteCustomerControl } from "@/components/admin/delete-customer-control";
@@ -20,7 +21,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 function ContactLink({ type, value }: { type: "email" | "whatsapp"; value: string | null | undefined }) {
-  const Icon = type === "email" ? Mail : MessageCircle;
+  const Icon = type === "email" ? Mail : SiWhatsapp;
   if (!value) return <span className="inline-flex items-center gap-2 text-ink-muted"><Icon className="size-4" />Belum tersedia</span>;
   const href = type === "email" ? `mailto:${value}` : `https://wa.me/${value.replace(/\D/g, "").replace(/^0/, "62")}`;
   return <a href={href} target={type === "whatsapp" ? "_blank" : undefined} rel={type === "whatsapp" ? "noreferrer" : undefined} className="inline-flex items-center gap-2 break-all font-medium text-ink hover:text-brand hover:underline"><Icon className="size-4 shrink-0" />{value}</a>;

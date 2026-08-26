@@ -31,7 +31,7 @@ export function LoginForm({ next = "/loyalty" }: { next?: string }) {
           href="/auth/admin-login"
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line bg-white px-4 text-sm font-bold text-ink hover:border-brand/40 hover:bg-brand-soft"
         >
-          <Fingerprint className="size-4" aria-hidden="true" /> Masuk admin lewat link email
+          <Fingerprint className="size-4" aria-hidden="true" /> Masuk admin dengan OTP email
         </Link>
       ) : null}
       <p className="text-center text-sm text-ink-muted">Belum punya akun? <Link href="/auth/register" className="font-bold text-brand hover:underline">Daftar</Link></p>

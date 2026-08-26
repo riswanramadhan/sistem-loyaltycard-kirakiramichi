@@ -11,6 +11,7 @@ const mutations = migration("20260814000300_loyalty_mutations.sql");
 const reads = migration("20260814000400_loyalty_reads.sql");
 const realtime = migration("20260814000500_loyalty_realtime.sql");
 const adminAccounts = migration("20260820000100_admin_account_management.sql");
+const realtimeAndAdminTransition = migration("20260826000100_realtime_and_admin_transition.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -97,13 +98,17 @@ describe("Supabase migration contract", () => {
     expect(reads.match(/admin_access_required/g)?.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("publishes only the customer realtime hint tables", () => {
+  it("publishes loyalty state and admin-edited program data as realtime hints", () => {
     for (const table of ["member_cards", "stamp_requests", "reward_redemptions"]) {
       expect(realtime).toContain(`alter table public.${table} replica identity full`);
       expect(realtime).toContain(`alter publication supabase_realtime add table public.${table}`);
     }
     expect(realtime).not.toContain("add table public.profiles");
     expect(realtime).toContain("supabase_realtime_publication_missing");
+    for (const table of ["stamp_events", "loyalty_programs", "loyalty_card_definitions"]) {
+      expect(realtimeAndAdminTransition).toContain(`alter table public.${table} replica identity full`);
+    }
+    expect(realtimeAndAdminTransition).toContain("alter publication supabase_realtime add table public.%i");
   });
 
   it("keeps admin creation and complete customer deletion role checked", () => {
@@ -118,6 +123,11 @@ describe("Supabase migration contract", () => {
     expect(adminAccounts).toContain("delete from public.member_programs");
     expect(adminAccounts).toContain("before delete on auth.users");
     expect(adminAccounts).toContain("only_customer_accounts_can_be_deleted");
+    expect(realtimeAndAdminTransition).toContain("admin_accounts_require_verified_replacement");
+    expect(realtimeAndAdminTransition).toContain("update public.stamp_requests set reviewed_by");
+    expect(realtimeAndAdminTransition).toContain("update public.stamp_events set created_by");
+    expect(realtimeAndAdminTransition).toContain("update public.reward_redemptions set redeemed_by");
+    expect(realtimeAndAdminTransition).toContain("sync_available_reward_expiry");
   });
 
   it("ships the full database behavior test suite", () => {
@@ -125,12 +135,14 @@ describe("Supabase migration contract", () => {
       join(process.cwd(), "supabase", "tests", "database", "loyalty_database.test.sql"),
       "utf8",
     ).toLowerCase();
-    expect(pgTap).toContain("extensions.plan(100)");
+    expect(pgTap).toContain("extensions.plan(108)");
     expect(pgTap).toContain("double approval is rejected");
     expect(pgTap).toContain("card six completion completes the member program");
     expect(pgTap).toContain("customer cannot read another profile");
     expect(pgTap).toContain("an expired reward cannot be redeemed");
     expect(pgTap).toContain("reversal reopens the completed card with corrected progress");
     expect(pgTap).toContain("customer stamp requests and ledger are deleted");
+    expect(pgTap).toContain("edited expiry days propagate to the customer available reward");
+    expect(pgTap).toContain("replacement admin owns every transferred request, ledger, and reward audit reference");
   });
 });

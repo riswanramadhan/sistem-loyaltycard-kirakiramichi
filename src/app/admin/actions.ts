@@ -139,20 +139,20 @@ export async function createAdminAccountAction(
       email: parsed.data.email,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${origin}/auth/callback?next=/admin`,
+        emailRedirectTo: `${origin}/auth/confirm?next=/admin`,
       },
     });
-    if (loginLinkError) console.error("Initial admin login link could not be sent", loginLinkError.message);
+    if (loginLinkError) console.error("Initial admin OTP could not be sent", loginLinkError.message);
     else loginLinkSent = true;
   } catch {
-    console.error("Initial admin login link origin is not configured safely.");
+    console.error("Initial admin OTP origin is not configured safely.");
   }
 
   revalidatePath("/admin/admins");
   return success(
     loginLinkSent
-      ? `Admin ${parsed.data.email} siap. Link login pertama sudah dikirim.`
-      : `Admin ${parsed.data.email} siap. Minta link dari halaman login admin.`,
+      ? `Admin ${parsed.data.email} siap. Kode OTP login pertama sudah dikirim.`
+      : `Admin ${parsed.data.email} siap. Minta OTP dari halaman login admin.`,
   );
 }
 

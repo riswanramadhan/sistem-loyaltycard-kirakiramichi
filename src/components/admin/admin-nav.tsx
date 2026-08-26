@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   BookOpenCheck,
   ContactRound,
-  ExternalLink,
   Kanban,
   LogOut,
   PanelTopDashed,
@@ -116,10 +115,6 @@ export function AdminNav({ adminName }: { adminName: string }) {
         </nav>
 
         <div className="mt-auto grid gap-1 border-t border-line pt-4">
-          <Link href="/loyalty" className="flex min-h-11 items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-ink-muted hover:bg-surface-muted hover:text-ink">
-            <ExternalLink className="size-4" aria-hidden="true" />
-            Lihat aplikasi customer
-          </Link>
           <form action={adminSignOutAction}>
             <button type="submit" className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3.5 text-sm font-bold text-ink-muted hover:bg-danger-soft hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger">
               <LogOut className="size-4" aria-hidden="true" />

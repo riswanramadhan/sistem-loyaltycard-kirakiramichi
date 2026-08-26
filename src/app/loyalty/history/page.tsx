@@ -1,95 +1,19 @@
 import type { Metadata } from "next";
 import { HistoryTimeline, type HistoryItem } from "@/components/loyalty/history-timeline";
 import { PageHeading } from "@/components/loyalty/page-heading";
-import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { getMyLoyaltyState } from "@/lib/loyalty/my-loyalty-state";
 
 export const metadata: Metadata = { title: "History" };
 
-type CardRow = { id: string; sequence_no: number; completed_at: string | null };
-type MembershipRow = { id: string };
-type RequestRow = {
-  id: string;
-  member_card_id: string;
-  requested_count: number;
-  approved_count: number | null;
-  status: string;
-  admin_note: string | null;
-  requested_at: string;
-  reviewed_at: string | null;
-};
-type EventRow = {
-  id: string;
-  member_card_id: string;
-  stamp_request_id: string | null;
-  event_type: string;
-  quantity: number;
-  reason: string | null;
-  created_at: string;
-};
-type RewardRow = {
-  id: string;
-  member_card_id: string;
-  status: string;
-  available_at: string;
-  redeemed_at: string | null;
-  note: string | null;
-};
-
 export default async function HistoryPage() {
-  const user = await requireUser();
-  const supabase = await createClient();
-
-  const { data: membershipData, error: membershipError } = await supabase
-    .from("member_programs")
-    .select("id")
-    .eq("user_id", user.id);
-
-  if (membershipError) throw new Error("HISTORY_DATA_UNAVAILABLE");
-  const membershipIds = ((membershipData ?? []) as MembershipRow[]).map(
-    (membership) => membership.id,
-  );
-  const cardsQuery = membershipIds.length
-    ? supabase
-        .from("member_cards")
-        .select("id, sequence_no, completed_at")
-        .in("member_program_id", membershipIds)
-        .order("sequence_no", { ascending: true })
-    : Promise.resolve({ data: [] as CardRow[], error: null });
-
-  const [cardsResult, requestsResult, eventsResult, rewardsResult] = await Promise.all([
-    cardsQuery,
-    supabase
-      .from("stamp_requests")
-      .select(
-        "id, member_card_id, requested_count, approved_count, status, admin_note, requested_at, reviewed_at",
-      )
-      .eq("user_id", user.id)
-      .order("requested_at", { ascending: false })
-      .limit(150),
-    supabase
-      .from("stamp_events")
-      .select("id, member_card_id, stamp_request_id, event_type, quantity, reason, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(150),
-    supabase
-      .from("reward_redemptions")
-      .select("id, member_card_id, status, available_at, redeemed_at, note")
-      .eq("user_id", user.id),
-  ]);
-
-  if (cardsResult.error || requestsResult.error || eventsResult.error || rewardsResult.error) {
-    throw new Error("HISTORY_DATA_UNAVAILABLE");
-  }
-
-  const cards = (cardsResult.data ?? []) as CardRow[];
+  const state = await getMyLoyaltyState();
+  const cards = state.cards;
   const cardNo = new Map(cards.map((card) => [card.id, card.sequence_no]));
-  const events = (eventsResult.data ?? []) as EventRow[];
+  const events = state.stamp_events;
   const eventRequestIds = new Set(events.flatMap((event) => (event.stamp_request_id ? [event.stamp_request_id] : [])));
   const items: HistoryItem[] = [];
 
-  for (const request of (requestsResult.data ?? []) as RequestRow[]) {
+  for (const request of state.requests) {
     const number = cardNo.get(request.member_card_id) ?? "–";
     if (request.status === "pending") {
       items.push({
@@ -147,7 +71,7 @@ export default async function HistoryPage() {
     });
   }
 
-  for (const reward of (rewardsResult.data ?? []) as RewardRow[]) {
+  for (const reward of state.rewards) {
     const number = cardNo.get(reward.member_card_id) ?? "–";
     items.push({
       id: `reward-available-${reward.id}`,

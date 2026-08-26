@@ -26,8 +26,8 @@ function friendlyAuthMessage(message?: string) {
   if (normalized.includes("already registered") || normalized.includes("already been registered")) return "Email ini sudah terdaftar. Silakan masuk.";
   if (normalized.includes("password")) return "Password belum memenuhi ketentuan keamanan.";
   if (normalized.includes("rate limit")) return "Terlalu banyak percobaan. Coba lagi beberapa saat ya.";
-  if (normalized.includes("expired")) return "Tautan autentikasi sudah kedaluwarsa. Minta tautan baru ya.";
-  if (normalized.includes("otp") || normalized.includes("token")) return "Tautan autentikasi tidak valid atau sudah digunakan.";
+  if (normalized.includes("expired")) return "Kode OTP sudah kedaluwarsa. Minta kode baru ya.";
+  if (normalized.includes("otp") || normalized.includes("token")) return "Kode OTP tidak valid atau sudah digunakan.";
   return "Proses belum berhasil. Coba lagi sebentar ya.";
 }
 
@@ -102,7 +102,7 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/loyalty`,
+      emailRedirectTo: `${origin}/auth/confirm?next=/loyalty`,
       data: {
         full_name: parsed.data.fullName,
         whatsapp: parsed.data.whatsapp,
@@ -112,6 +112,10 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
   });
 
   if (error) return { status: "error", message: friendlyAuthMessage(error.message), fields };
+
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return { status: "error", message: "Email ini sudah terdaftar. Silakan masuk.", fields };
+  }
 
   if (data.session) {
     const { error: joinError } = await supabase.rpc("join_loyalty_program", {
@@ -123,11 +127,7 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
     redirect("/loyalty");
   }
 
-  return {
-    status: "success",
-    message: "Link verifikasi sudah dikirim. Buka email kamu lalu klik link tersebut untuk mengaktifkan akun.",
-    fields,
-  };
+  redirect(`/auth/verify-otp?mode=signup&email=${encodeURIComponent(parsed.data.email.toLowerCase())}`);
 }
 
 export async function forgotPasswordAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -157,7 +157,7 @@ export async function forgotPasswordAction(_previous: AuthState, formData: FormD
   };
 }
 
-export async function requestAdminLoginLinkAction(
+export async function requestAdminLoginOtpAction(
   _previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
@@ -183,15 +183,125 @@ export async function requestAdminLoginLinkAction(
     email,
     options: {
       shouldCreateUser: false,
-      emailRedirectTo: `${origin}/auth/callback?next=/admin`,
+      emailRedirectTo: `${origin}/auth/confirm?next=/admin`,
     },
   });
 
   if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
-  return {
-    status: "success",
-    message: "Link login admin sudah dikirim. Buka email tersebut lalu klik link untuk masuk.",
-  };
+  redirect(`/auth/verify-otp?mode=admin&email=${encodeURIComponent(email)}`);
+}
+
+export async function verifyEmailOtpAction(
+  _previous: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const parsed = z.object({
+    email: emailSchema,
+    token: z.string().trim().regex(/^\d{6}$/, "Masukkan enam digit kode OTP."),
+    mode: z.enum(["signup", "admin"]),
+  }).safeParse({
+    email: formData.get("email"),
+    token: formData.get("token"),
+    mode: formData.get("mode"),
+  });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: parsed.data.email.toLowerCase(),
+    token: parsed.data.token,
+    type: "email",
+  });
+
+  if (error || !data.user) {
+    return { status: "error", message: friendlyAuthMessage(error?.message) };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    await supabase.auth.signOut();
+    return { status: "error", message: "Profil akun belum tersedia. Silakan coba masuk kembali." };
+  }
+
+  if (parsed.data.mode === "admin") {
+    if (profile.role !== "admin") {
+      await supabase.auth.signOut();
+      return { status: "error", message: "Akun ini tidak memiliki akses admin." };
+    }
+
+    revalidatePath("/", "layout");
+    redirect("/admin");
+  }
+
+  if (profile.role !== "customer") {
+    await supabase.auth.signOut();
+    return { status: "error", message: "Akun admin harus masuk melalui halaman login admin." };
+  }
+
+  const { error: joinError } = await supabase.rpc("join_loyalty_program", {
+    p_program_slug: "kira-kira-michi-loyalty",
+  });
+  if (joinError) {
+    console.error("Membership initialization failed after OTP verification", joinError.message);
+    return {
+      status: "error",
+      message: "Email sudah terverifikasi, tetapi loyalty belum bisa dibuka. Silakan masuk kembali.",
+    };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/loyalty");
+}
+
+export async function resendEmailOtpAction(
+  _previous: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const parsed = z.object({
+    email: emailSchema,
+    mode: z.enum(["signup", "admin"]),
+  }).safeParse({ email: formData.get("email"), mode: formData.get("mode") });
+
+  if (!parsed.success) {
+    return { status: "error", message: "Alamat email atau jenis OTP tidak valid." };
+  }
+
+  let origin: string;
+  try {
+    origin = await getAuthRedirectOrigin();
+  } catch {
+    return { status: "error", message: "Domain verifikasi belum dikonfigurasi." };
+  }
+
+  const email = parsed.data.email.toLowerCase();
+  const supabase = await createClient();
+  const result = parsed.data.mode === "signup"
+    ? await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${origin}/auth/confirm?next=/loyalty` },
+      })
+    : await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${origin}/auth/confirm?next=/admin`,
+        },
+      });
+
+  if (result.error) {
+    return { status: "error", message: friendlyAuthMessage(result.error.message) };
+  }
+
+  return { status: "success", message: "Kode OTP baru sudah dikirim ke email kamu." };
 }
 
 export async function updatePasswordAction(_previous: AuthState, formData: FormData): Promise<AuthState> {

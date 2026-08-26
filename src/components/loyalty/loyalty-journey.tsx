@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, Clock3, Gift, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Clock3, Gift, LockKeyhole, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StatusMessage } from "@/components/ui/status-message";
 import { RequestStampSheet } from "@/components/loyalty/request-stamp-sheet";
 import { StampGrid } from "@/components/loyalty/stamp-grid";
 import type { LoyaltyCardView } from "@/components/loyalty/types";
@@ -227,7 +226,7 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
 
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 5000);
+    const timer = window.setTimeout(() => setNotice(null), 4000);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
@@ -252,9 +251,16 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
       </div>
 
       {notice ? (
-        <StatusMessage tone="success" className="mt-5">
-          {notice}
-        </StatusMessage>
+        <div className="pointer-events-none fixed inset-0 z-[75] grid place-items-center bg-ink/15 px-4 backdrop-blur-[2px]" role="status" aria-live="polite">
+          <div className="animate-rise relative w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-success/25 bg-white p-6 text-center shadow-[0_24px_70px_rgba(43,39,40,0.22)]">
+            <span className="success-check-loop mx-auto grid size-16 place-items-center rounded-full bg-success-soft text-success">
+              <CheckCircle2 className="size-9" strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            <h3 className="mt-4 text-lg font-extrabold text-ink">Request stamp berhasil!</h3>
+            <p className="mt-2 text-sm leading-6 text-ink-muted">{notice}</p>
+            <span className="request-popup-progress absolute inset-x-0 bottom-0 h-1.5 origin-left bg-success" aria-hidden="true" />
+          </div>
+        </div>
       ) : null}
 
       <div

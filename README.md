@@ -4,14 +4,14 @@ Aplikasi loyalty mobile-first untuk alur lengkap **scan -> join -> request stamp
 
 ## Fitur MVP
 
-- Registrasi, login, verifikasi email lewat link, reset password lewat link, dan sesi server-side.
+- Registrasi, login, verifikasi email dengan OTP enam digit, reset password lewat link, dan sesi server-side.
 - Join via `/join` yang idempotent.
 - Enam loyalty card berurutan, delapan stamp per card.
 - Request +1/+2, status pending, approval parsial, rejection, dan realtime refresh.
 - Reward available/expired/redeemed dengan snapshot masa berlaku, history, profile, dan marketing preference.
 - Dashboard admin, request inbox, customer directory/detail, controlled adjustments termasuk pembalikan completion yang aman, program editor, audit ledger, dan QR join.
-- Login admin via link email, pembuatan admin dari workspace, dan penghapusan customer beserta seluruh data akun.
-- Toast approval/rejection 5 detik, confetti saat card penuh, cap logo Kira Kira Michi, kontak WA/IG, dan UI anti-auto-zoom di mobile.
+- Login admin via OTP email, pembuatan admin dari workspace, dan penghapusan customer beserta seluruh data akun.
+- Toast approval/rejection 5 detik dengan progress bar, confetti setiap stamp, popup request 4 detik, kontak WA/IG, dan UI anti-auto-zoom di mobile.
 - RLS di seluruh tabel bisnis; mutation privileged hanya lewat RPC `security definer` yang memeriksa role.
 - Ledger stamp immutable dan approval memakai row lock dalam satu transaksi PostgreSQL.
 
@@ -29,7 +29,7 @@ Set environment variable berikut di Vercel Project Settings > Environment Variab
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-NEXT_PUBLIC_SITE_URL=https://domain-produksi-anda.com
+NEXT_PUBLIC_SITE_URL=https://kirakiraloyaltycard.web.id
 SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
@@ -43,53 +43,34 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
 ```
 
-## Setup Link Auth Supabase
+## Setup OTP Auth Supabase
 
 Di Supabase Dashboard > Authentication > URL Configuration:
 
-- **Site URL**: `https://domain-produksi-anda.com`
-- **Redirect URLs**: tambahkan `https://domain-produksi-anda.com/auth/callback**`
-- Tambahkan juga `https://domain-produksi-anda.com/auth/confirm**` untuk endpoint konfirmasi server-side.
-- Hapus URL `localhost` dan `/auth/verify-otp` dari konfigurasi production bila sudah tidak digunakan.
+- **Site URL**: `https://kirakiraloyaltycard.web.id`
+- **Redirect URLs**: tambahkan `https://kirakiraloyaltycard.web.id/auth/callback**`
+- Tambahkan `https://kirakiraloyaltycard.web.id/auth/confirm**` untuk reset password dan fallback link server-side.
+- Pertahankan **Confirm email** aktif agar signup mengirim OTP.
 
 Di Supabase Dashboard > Authentication > Email Templates:
 
-- **Confirm signup**: tombol harus menuju link konfirmasi akun di bawah.
-- **Reset password**: tombol harus menuju link reset password di bawah.
-- **Magic Link**: tombol harus menuju link login admin di bawah.
-- Jangan tampilkan `{{ .Token }}` karena aplikasi tidak lagi meminta pengguna memasukkan kode.
+- **Confirm signup**: salin source `supabase/templates/confirmation.html` agar menampilkan `{{ .Token }}`.
+- **Magic Link**: salin `supabase/templates/magic-link.html`; template ini dipakai untuk OTP login admin.
+- **Reset password**: salin `supabase/templates/recovery.html`.
+- **Invite user** dan **Change email** tersedia di folder yang sama.
 
-Link tombol untuk masing-masing template:
-
-```html
-<!-- Confirm signup -->
-<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/loyalty">
-  Verifikasi email
-</a>
-
-<!-- Reset password -->
-<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=recovery&amp;next=/auth/update-password">
-  Reset password
-</a>
-
-<!-- Magic Link untuk admin -->
-<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&amp;type=email&amp;next=/admin">
-  Masuk ke admin
-</a>
-```
-
-Gunakan hanya satu link yang sesuai pada setiap template, bukan ketiganya sekaligus. Endpoint `/auth/confirm` memverifikasi token dari link di server, membuat sesi cookie, lalu mengarahkan customer ke loyalty, admin ke workspace admin, atau pengguna reset password ke halaman password baru. Role admin tetap diperiksa di server sebelum akses `/admin` diberikan.
+Halaman `/auth/verify-otp` memverifikasi pasangan email + OTP di server. Setelah berhasil, customer langsung dibuatkan membership secara idempotent; akun admin masih wajib lolos pengecekan role database sebelum masuk workspace. `/auth/confirm` dipertahankan untuk reset password dan fallback link berbasis `TokenHash`.
 
 ### SMTP Production
 
-Di Supabase Dashboard > Authentication > Emails > SMTP Settings, aktifkan **Custom SMTP** dan isi host, port, username, password, sender email, serta sender name dari penyedia email transaksi Anda. SMTP bawaan hanya untuk percobaan dan tidak cocok untuk pengiriman email autentikasi production.
+Di Supabase Dashboard > Authentication > Emails > SMTP Settings, aktifkan **Custom SMTP** dan gunakan sender `dekatlokal@kirakiraloyaltycard.web.id`. SMTP bawaan hanya untuk percobaan dan tidak cocok untuk pengiriman email autentikasi production.
 
 Setelah SMTP aktif:
 
 1. Gunakan domain pengirim yang sudah memiliki SPF, DKIM, dan DMARC.
 2. Matikan link tracking di penyedia SMTP agar URL autentikasi tidak ditulis ulang dan menjadi rusak.
 3. Di Authentication > Sign In / Providers > Email, pertahankan **Confirm email** aktif.
-4. Gunakan masa berlaku link yang singkat dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
+4. Gunakan masa berlaku OTP yang singkat dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
 5. Kirim email percobaan untuk signup, reset password, dan login admin dari domain production sebelum go-live.
 
 ## Admin Production
@@ -97,8 +78,8 @@ Setelah SMTP aktif:
 Setelah migration terbaru berhasil dipush, siapkan admin awal yang diminta:
 
 ```text
-Email: kirakiramichi@admin.com
-Password awal: kirakiramichi0110
+Email: kirakiramichi@dekatlokal.com
+Password awal: nilai `BOOTSTRAP_ADMIN_PASSWORD` (jangan commit nilainya)
 ```
 
 Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
@@ -106,19 +87,23 @@ Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
 ```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL="https://PROJECT_REF.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY="SERVICE_ROLE_KEY_PRODUCTION"
+$env:BOOTSTRAP_ADMIN_EMAIL="kirakiramichi@dekatlokal.com"
+$env:BOOTSTRAP_ADMIN_PASSWORD="PASSWORD_AWAL_YANG_DIMINTA"
 npm run admin:bootstrap
 Remove-Item Env:NEXT_PUBLIC_SUPABASE_URL
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
+Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
+Remove-Item Env:BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-Skrip bersifat idempotent: akun dibuat bila belum ada, password disetel sesuai nilai bootstrap, lalu profil dipromosikan ke role admin. Setelah login pertama, segera ganti password melalui alur **Lupa password** memakai link email.
+Skrip bersifat idempotent: akun utama dibuat/diperbarui dan dipromosikan menjadi admin. Pada eksekusi awal saja, semua akun admin lama dihentikan setelah kepemilikan audit dipindahkan ke admin utama. Penanda aman kemudian disimpan di metadata agar admin tambahan yang dibuat setelahnya tidak ikut terhapus saat bootstrap dijalankan ulang. Migrasi terbaru wajib dipush sebelum bootstrap. Password dapat diganti dari profile atau alur **Lupa password**.
 
 Admin tambahan dibuat hanya dari `/admin/admins`:
 
 1. Admin aktif membuka menu **Akun admin**.
 2. Isi nama dan email baru, termasuk Gmail.
-3. Sistem membuat akun tanpa password bersama dan mengirim link login pertama.
-4. Admin baru masuk dari `/auth/admin-login`, lalu klik link yang diterima lewat email.
+3. Sistem membuat akun tanpa password bersama dan mengirim OTP login pertama.
+4. Admin baru masuk dari `/auth/admin-login`, lalu memasukkan kode enam digit dari email.
 
 Tidak ada registrasi admin publik. Customer biasa tidak dapat mempromosikan diri sendiri; role selalu diperiksa lagi di database.
 
@@ -141,7 +126,7 @@ Jika bootstrap script tidak dapat dijalankan, buat user melalui Supabase Dashboa
 update public.profiles
 set role = 'admin', updated_at = now()
 where id = (
-  select id from auth.users where email = 'kirakiramichi@admin.com'
+  select id from auth.users where email = 'kirakiramichi@dekatlokal.com'
 );
 ```
 
@@ -179,7 +164,7 @@ docs/                    UAT dan security runbook
 Public dan auth:
 
 - `/`, `/join`
-- `/auth/login`, `/auth/register`, `/auth/forgot-password`, `/auth/confirm`, `/auth/callback`, `/auth/update-password`
+- `/auth/login`, `/auth/register`, `/auth/verify-otp`, `/auth/forgot-password`, `/auth/confirm`, `/auth/callback`, `/auth/update-password`
 - `/auth/admin-login`
 
 Customer:
@@ -205,7 +190,7 @@ Admin:
 
 - Jalankan seluruh migration dan seed card definition.
 - Set Site URL Auth ke domain Vercel/production.
-- Ubah tiga template email Supabase agar tombol memakai `{{ .TokenHash }}` menuju `/auth/confirm`; jangan tampilkan kode OTP.
+- Salin template HTML bermerek dari `supabase/templates` ke Email Templates Supabase dan pastikan kode `{{ .Token }}` tampil pada signup serta Magic Link/OTP.
 - Tambahkan `SUPABASE_SERVICE_ROLE_KEY` hanya di environment server Vercel.
 - Jalankan `npm run admin:bootstrap`, login, lalu ganti password awal.
 - Aktifkan Realtime untuk tabel yang disertakan migration.

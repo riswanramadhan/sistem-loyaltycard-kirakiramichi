@@ -76,7 +76,7 @@ export async function requestStampAction(input: {
   return {
     ok: true,
     message:
-      "Stamp request sent! Lagi dicek sama Kira Kira Michi. Stamp kamu akan masuk setelah dikonfirmasi.",
+      "Lagi dicek oleh tim Kira Kira Michi. Stamp kamu akan masuk setelah dikonfirmasi.",
   };
 }
 
