@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { whatsappSchema } from "@/app/auth/validation";
+import { friendlyAuthMessage } from "@/lib/auth/auth-errors";
+import { EMAIL_OTP_LENGTH, isEmailOtpExpired } from "@/lib/auth/otp";
 import { safeReturnPath } from "@/lib/navigation";
 import { getAuthRedirectOrigin } from "@/lib/request-url";
 import { createClient } from "@/lib/supabase/server";
@@ -16,19 +18,46 @@ export type AuthState = {
 
 const emailSchema = z.string().trim().email("Masukkan alamat email yang valid.").max(254);
 const passwordSchema = z.string().min(8, "Password minimal 8 karakter.").max(72);
+const PROGRAM_SLUG = "kira-kira-michi-loyalty";
+const otpPattern = new RegExp(`^\\d{${EMAIL_OTP_LENGTH}}$`);
+
 function values(formData: FormData, names: string[]) {
   return Object.fromEntries(names.map((name) => [name, String(formData.get(name) ?? "")])) as Record<string, string>;
 }
 
-function friendlyAuthMessage(message?: string) {
-  const normalized = message?.toLowerCase() ?? "";
-  if (normalized.includes("invalid login")) return "Email atau password belum tepat.";
-  if (normalized.includes("already registered") || normalized.includes("already been registered")) return "Email ini sudah terdaftar. Silakan masuk.";
-  if (normalized.includes("password")) return "Password belum memenuhi ketentuan keamanan.";
-  if (normalized.includes("rate limit")) return "Terlalu banyak percobaan. Coba lagi beberapa saat ya.";
-  if (normalized.includes("expired")) return "Kode OTP sudah kedaluwarsa. Minta kode baru ya.";
-  if (normalized.includes("otp") || normalized.includes("token")) return "Kode OTP tidak valid atau sudah digunakan.";
-  return "Proses belum berhasil. Coba lagi sebentar ya.";
+async function initializeCustomerLoyalty(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+) {
+  const { error: joinError } = await supabase.rpc("join_loyalty_program", {
+    p_program_slug: PROGRAM_SLUG,
+  });
+
+  if (joinError) {
+    console.error("[auth:loyalty-join]", joinError.message);
+    return false;
+  }
+
+  const { data, error } = await supabase.rpc("get_my_loyalty_state", {
+    p_program_slug: PROGRAM_SLUG,
+  });
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+    console.error("[auth:loyalty-ready]", error?.message ?? "invalid loyalty state");
+    return false;
+  }
+
+  const state = data as {
+    profile?: { role?: unknown } | null;
+    program?: { total_cards?: unknown } | null;
+    member_program?: unknown;
+    cards?: unknown;
+  };
+  const expectedCards = state.program?.total_cards;
+
+  return state.profile?.role === "customer" &&
+    Boolean(state.member_program) &&
+    Array.isArray(state.cards) &&
+    typeof expectedCards === "number" &&
+    state.cards.length === expectedCards;
 }
 
 export async function loginAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -43,14 +72,18 @@ export async function loginAction(_previous: AuthState, formData: FormData): Pro
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message), fields };
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "login"), fields };
 
   const returnPath = safeReturnPath(formData.get("next"));
   if (returnPath === "/join" || returnPath.startsWith("/loyalty")) {
-    const { error: joinError } = await supabase.rpc("join_loyalty_program", {
-      p_program_slug: "kira-kira-michi-loyalty",
-    });
-    if (joinError) console.error("Membership initialization failed", joinError.message);
+    if (!await initializeCustomerLoyalty(supabase)) {
+      await supabase.auth.signOut();
+      return {
+        status: "error",
+        message: "Akun sudah benar, tetapi kartu loyalty belum dapat disiapkan. Coba masuk kembali; jika berulang, hubungi admin.",
+        fields,
+      };
+    }
   }
 
   revalidatePath("/", "layout");
@@ -98,36 +131,49 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    options: {
-      emailRedirectTo: `${origin}/auth/confirm?next=/loyalty`,
-      data: {
-        full_name: parsed.data.fullName,
-        whatsapp: parsed.data.whatsapp,
-        marketing_consent: parsed.data.marketingConsent,
+  let signUpResult;
+  try {
+    signUpResult = await supabase.auth.signUp({
+      email: parsed.data.email.toLowerCase(),
+      password: parsed.data.password,
+      options: {
+        emailRedirectTo: `${origin}/auth/confirm?next=/loyalty`,
+        data: {
+          full_name: parsed.data.fullName,
+          whatsapp: parsed.data.whatsapp,
+          marketing_consent: parsed.data.marketingConsent,
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    console.error("[auth:register-request]", error instanceof Error ? error.message : "unknown error");
+    return {
+      status: "error",
+      message: "Koneksi ke layanan pendaftaran terputus. Periksa internet lalu coba kembali.",
+      fields,
+    };
+  }
 
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message), fields };
+  const { data, error } = signUpResult;
+
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "register"), fields };
 
   if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
     return { status: "error", message: "Email ini sudah terdaftar. Silakan masuk.", fields };
   }
 
   if (data.session) {
-    const { error: joinError } = await supabase.rpc("join_loyalty_program", {
-      p_program_slug: "kira-kira-michi-loyalty",
-    });
-    if (joinError) {
-      return { status: "error", message: "Akun berhasil dibuat, tetapi loyalty belum bisa dibuka. Coba masuk kembali ya.", fields };
+    if (!await initializeCustomerLoyalty(supabase)) {
+      return {
+        status: "error",
+        message: "Akun berhasil dibuat, tetapi kartu loyalty belum selesai disiapkan. Masuk kembali; sistem akan mencoba menyiapkannya lagi.",
+        fields,
+      };
     }
     redirect("/loyalty");
   }
 
-  redirect(`/auth/verify-otp?mode=signup&email=${encodeURIComponent(parsed.data.email.toLowerCase())}`);
+  redirect(`/auth/verify-otp?mode=signup&email=${encodeURIComponent(parsed.data.email.toLowerCase())}&sentAt=${Date.now()}`);
 }
 
 export async function forgotPasswordAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -149,7 +195,7 @@ export async function forgotPasswordAction(_previous: AuthState, formData: FormD
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
     redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
   });
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "password") };
 
   return {
     status: "success",
@@ -187,8 +233,8 @@ export async function requestAdminLoginOtpAction(
     },
   });
 
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
-  redirect(`/auth/verify-otp?mode=admin&email=${encodeURIComponent(email)}`);
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "otp") };
+  redirect(`/auth/verify-otp?mode=admin&email=${encodeURIComponent(email)}&sentAt=${Date.now()}`);
 }
 
 export async function verifyEmailOtpAction(
@@ -197,16 +243,25 @@ export async function verifyEmailOtpAction(
 ): Promise<AuthState> {
   const parsed = z.object({
     email: emailSchema,
-    token: z.string().trim().regex(/^\d{6}$/, "Masukkan enam digit kode OTP."),
+    token: z.string().trim().regex(otpPattern, `Masukkan ${EMAIL_OTP_LENGTH} digit kode OTP dari email.`),
     mode: z.enum(["signup", "admin"]),
+    sentAt: z.coerce.number().int().positive().optional(),
   }).safeParse({
     email: formData.get("email"),
     token: formData.get("token"),
     mode: formData.get("mode"),
+    sentAt: formData.get("sentAt") || undefined,
   });
 
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message };
+  }
+
+  if (parsed.data.sentAt && isEmailOtpExpired(parsed.data.sentAt)) {
+    return {
+      status: "error",
+      message: "Kode OTP sudah melewati masa berlaku 1 jam. Minta kode baru untuk melanjutkan.",
+    };
   }
 
   const supabase = await createClient();
@@ -217,7 +272,7 @@ export async function verifyEmailOtpAction(
   });
 
   if (error || !data.user) {
-    return { status: "error", message: friendlyAuthMessage(error?.message) };
+    return { status: "error", message: friendlyAuthMessage(error?.message, "otp") };
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -246,14 +301,10 @@ export async function verifyEmailOtpAction(
     return { status: "error", message: "Akun admin harus masuk melalui halaman login admin." };
   }
 
-  const { error: joinError } = await supabase.rpc("join_loyalty_program", {
-    p_program_slug: "kira-kira-michi-loyalty",
-  });
-  if (joinError) {
-    console.error("Membership initialization failed after OTP verification", joinError.message);
+  if (!await initializeCustomerLoyalty(supabase)) {
     return {
       status: "error",
-      message: "Email sudah terverifikasi, tetapi loyalty belum bisa dibuka. Silakan masuk kembali.",
+      message: "Email sudah terverifikasi, tetapi kartu loyalty belum selesai disiapkan. Silakan masuk; sistem akan mencoba menyiapkannya kembali.",
     };
   }
 
@@ -262,7 +313,7 @@ export async function verifyEmailOtpAction(
 }
 
 export async function resendEmailOtpAction(
-  _previous: AuthState,
+  previous: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
   const parsed = z.object({
@@ -271,14 +322,14 @@ export async function resendEmailOtpAction(
   }).safeParse({ email: formData.get("email"), mode: formData.get("mode") });
 
   if (!parsed.success) {
-    return { status: "error", message: "Alamat email atau jenis OTP tidak valid." };
+    return { status: "error", message: "Alamat email atau jenis OTP tidak valid.", fields: previous.fields };
   }
 
   let origin: string;
   try {
     origin = await getAuthRedirectOrigin();
   } catch {
-    return { status: "error", message: "Domain verifikasi belum dikonfigurasi." };
+    return { status: "error", message: "Domain verifikasi belum dikonfigurasi.", fields: previous.fields };
   }
 
   const email = parsed.data.email.toLowerCase();
@@ -298,10 +349,18 @@ export async function resendEmailOtpAction(
       });
 
   if (result.error) {
-    return { status: "error", message: friendlyAuthMessage(result.error.message) };
+    return {
+      status: "error",
+      message: friendlyAuthMessage(result.error.message, "otp"),
+      fields: previous.fields,
+    };
   }
 
-  return { status: "success", message: "Kode OTP baru sudah dikirim ke email kamu." };
+  return {
+    status: "success",
+    message: `Kode OTP ${EMAIL_OTP_LENGTH} digit yang baru sudah dikirim. Kode berlaku 1 jam.`,
+    fields: { sentAt: String(Date.now()) },
+  };
 }
 
 export async function updatePasswordAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -315,7 +374,7 @@ export async function updatePasswordAction(_previous: AuthState, formData: FormD
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message) };
+  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "password") };
 
   return { status: "success", message: "Password berhasil diperbarui." };
 }

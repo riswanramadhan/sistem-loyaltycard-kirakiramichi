@@ -4,7 +4,7 @@ Aplikasi loyalty mobile-first untuk alur lengkap **scan -> join -> request stamp
 
 ## Fitur MVP
 
-- Registrasi, login, verifikasi email dengan OTP enam digit, reset password lewat link, dan sesi server-side.
+- Registrasi, login, verifikasi email dengan OTP delapan digit, reset password lewat link, dan sesi server-side.
 - Join via `/join` yang idempotent.
 - Enam loyalty card berurutan, delapan stamp per card.
 - Request +1/+2, status pending, approval parsial, rejection, dan realtime refresh.
@@ -30,10 +30,10 @@ Set environment variable berikut di Vercel Project Settings > Environment Variab
 NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_SITE_URL=https://kirakiraloyaltycard.web.id
-SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_SECRET_KEY=...
 ```
 
-Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. `SUPABASE_SERVICE_ROLE_KEY` wajib server-only: jangan pernah memakai prefix `NEXT_PUBLIC_` dan jangan menaruh nilainya di source code.
+Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. `SUPABASE_SECRET_KEY` (atau legacy `SUPABASE_SERVICE_ROLE_KEY`) wajib server-only: jangan pernah memakai prefix `NEXT_PUBLIC_` dan jangan menaruh nilainya di source code.
 
 Hubungkan Supabase CLI lalu push migration:
 
@@ -51,6 +51,7 @@ Di Supabase Dashboard > Authentication > URL Configuration:
 - **Redirect URLs**: tambahkan `https://kirakiraloyaltycard.web.id/auth/callback**`
 - Tambahkan `https://kirakiraloyaltycard.web.id/auth/confirm**` untuk reset password dan fallback link server-side.
 - Pertahankan **Confirm email** aktif agar signup mengirim OTP.
+- Atur **Email OTP length** ke `8` dan **Email OTP expiration** ke `3600` detik (1 jam). Nilai yang sama sudah ditetapkan di `supabase/config.toml` untuk local development.
 
 Di Supabase Dashboard > Authentication > Email Templates:
 
@@ -70,7 +71,7 @@ Setelah SMTP aktif:
 1. Gunakan domain pengirim yang sudah memiliki SPF, DKIM, dan DMARC.
 2. Matikan link tracking di penyedia SMTP agar URL autentikasi tidak ditulis ulang dan menjadi rusak.
 3. Di Authentication > Sign In / Providers > Email, pertahankan **Confirm email** aktif.
-4. Gunakan masa berlaku OTP yang singkat dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
+4. Gunakan masa berlaku OTP 3600 detik dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
 5. Kirim email percobaan untuk signup, reset password, dan login admin dari domain production sebelum go-live.
 
 ## Admin Production
@@ -86,12 +87,12 @@ Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
 
 ```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL="https://PROJECT_REF.supabase.co"
-$env:SUPABASE_SERVICE_ROLE_KEY="SERVICE_ROLE_KEY_PRODUCTION"
+$env:SUPABASE_SECRET_KEY="SB_SECRET_KEY_PRODUCTION"
 $env:BOOTSTRAP_ADMIN_EMAIL="kirakiramichi@dekatlokal.com"
 $env:BOOTSTRAP_ADMIN_PASSWORD="PASSWORD_AWAL_YANG_DIMINTA"
 npm run admin:bootstrap
 Remove-Item Env:NEXT_PUBLIC_SUPABASE_URL
-Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY
+Remove-Item Env:SUPABASE_SECRET_KEY
 Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
 Remove-Item Env:BOOTSTRAP_ADMIN_PASSWORD
 ```
@@ -103,7 +104,7 @@ Admin tambahan dibuat hanya dari `/admin/admins`:
 1. Admin aktif membuka menu **Akun admin**.
 2. Isi nama dan email baru, termasuk Gmail.
 3. Sistem membuat akun tanpa password bersama dan mengirim OTP login pertama.
-4. Admin baru masuk dari `/auth/admin-login`, lalu memasukkan kode enam digit dari email.
+4. Admin baru masuk dari `/auth/admin-login`, lalu memasukkan kode delapan digit dari email.
 
 Tidak ada registrasi admin publik. Customer biasa tidak dapat mempromosikan diri sendiri; role selalu diperiksa lagi di database.
 
@@ -191,7 +192,7 @@ Admin:
 - Jalankan seluruh migration dan seed card definition.
 - Set Site URL Auth ke domain Vercel/production.
 - Salin template HTML bermerek dari `supabase/templates` ke Email Templates Supabase dan pastikan kode `{{ .Token }}` tampil pada signup serta Magic Link/OTP.
-- Tambahkan `SUPABASE_SERVICE_ROLE_KEY` hanya di environment server Vercel.
+- Tambahkan `SUPABASE_SECRET_KEY` hanya di environment server Vercel agar pembuatan admin tambahan aktif. Penghapusan customer menggunakan RPC admin yang role-checked dan tidak lagi bergantung pada key ini.
 - Jalankan `npm run admin:bootstrap`, login, lalu ganti password awal.
 - Aktifkan Realtime untuk tabel yang disertakan migration.
 - Ubah judul/deskripsi reward netral dari `/admin/program` sebelum go-live.

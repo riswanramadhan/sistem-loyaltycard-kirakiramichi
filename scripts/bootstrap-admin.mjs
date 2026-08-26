@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+const serviceRoleKey =
+  process.env.SUPABASE_SECRET_KEY?.trim() ||
+  process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 const email = (process.env.BOOTSTRAP_ADMIN_EMAIL || "kirakiramichi@dekatlokal.com")
   .trim()
   .toLowerCase();
@@ -9,7 +11,7 @@ const password = process.env.BOOTSTRAP_ADMIN_PASSWORD;
 
 if (!url || !serviceRoleKey || !password) {
   throw new Error(
-    "Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and BOOTSTRAP_ADMIN_PASSWORD before bootstrapping the admin.",
+    "Set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY (or legacy SUPABASE_SERVICE_ROLE_KEY), and BOOTSTRAP_ADMIN_PASSWORD before bootstrapping the admin.",
   );
 }
 

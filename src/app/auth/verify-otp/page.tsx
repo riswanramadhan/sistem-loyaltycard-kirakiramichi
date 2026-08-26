@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { VerifyOtpForm } from "@/components/auth/verify-otp-form";
+import { EMAIL_OTP_LENGTH } from "@/lib/auth/otp";
 
 export const metadata: Metadata = {
   title: "Verifikasi OTP",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 export default async function VerifyOtpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string; mode?: string }>;
+  searchParams: Promise<{ email?: string; mode?: string; sentAt?: string }>;
 }) {
   const params = await searchParams;
   const parsed = z.object({
@@ -21,13 +22,17 @@ export default async function VerifyOtpPage({
   }).safeParse(params);
 
   if (!parsed.success) redirect("/auth/login");
+  const requestedSentAt = Number(params.sentAt);
+  const sentAt = Number.isFinite(requestedSentAt) && requestedSentAt > 0
+    ? requestedSentAt
+    : 0;
 
   return (
     <AuthShell
       title="Cek email kamu"
-      description="Masukkan enam digit kode OTP untuk melanjutkan dengan aman."
+      description={`Masukkan ${EMAIL_OTP_LENGTH} digit kode OTP untuk melanjutkan dengan aman.`}
     >
-      <VerifyOtpForm email={parsed.data.email} mode={parsed.data.mode} />
+      <VerifyOtpForm email={parsed.data.email} mode={parsed.data.mode} sentAt={sentAt} />
     </AuthShell>
   );
 }

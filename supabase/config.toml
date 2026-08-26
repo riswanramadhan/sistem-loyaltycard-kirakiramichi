@@ -4,6 +4,10 @@ project_id = "sistem-kirakiramichi"
 enabled = true
 sql_paths = ["./seed.sql"]
 
+[auth.email]
+otp_length = 8
+otp_expiry = 3600
+
 [auth.email.template.confirmation]
 subject = "{{ .Token }} adalah kode verifikasi Kira Kira Michi"
 content_path = "./supabase/templates/confirmation.html"

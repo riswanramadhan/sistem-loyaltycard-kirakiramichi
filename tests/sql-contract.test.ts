@@ -12,6 +12,7 @@ const reads = migration("20260814000400_loyalty_reads.sql");
 const realtime = migration("20260814000500_loyalty_realtime.sql");
 const adminAccounts = migration("20260820000100_admin_account_management.sql");
 const realtimeAndAdminTransition = migration("20260826000100_realtime_and_admin_transition.sql");
+const customerDelete = migration("20260827000100_admin_customer_delete_rpc.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -128,6 +129,19 @@ describe("Supabase migration contract", () => {
     expect(realtimeAndAdminTransition).toContain("update public.stamp_events set created_by");
     expect(realtimeAndAdminTransition).toContain("update public.reward_redemptions set redeemed_by");
     expect(realtimeAndAdminTransition).toContain("sync_available_reward_expiry");
+    expect(customerDelete).toContain("create or replace function public.admin_delete_customer_account");
+    expect(customerDelete).toContain("perform public.admin_prepare_customer_deletion");
+    expect(customerDelete).toContain("delete from auth.users");
+    expect(customerDelete).toContain("grant execute on function public.admin_delete_customer_account(uuid) to authenticated");
+  });
+
+  it("keeps the app, local auth, and branded templates on an eight-digit one-hour OTP", () => {
+    const config = readFileSync(join(process.cwd(), "supabase", "config.toml"), "utf8").toLowerCase();
+    const confirmation = readFileSync(join(process.cwd(), "supabase", "templates", "confirmation.html"), "utf8").toLowerCase();
+    expect(config).toContain("otp_length = 8");
+    expect(config).toContain("otp_expiry = 3600");
+    expect(confirmation).toContain("8 digit");
+    expect(confirmation).toContain("1 jam");
   });
 
   it("ships the full database behavior test suite", () => {

@@ -102,7 +102,9 @@ export function getSupabaseEnv() {
 
 export function getSupabaseAdminEnv() {
   const { url } = getSupabaseEnv();
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const serviceRoleKey =
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
   if (!serviceRoleKey) {
     throw new MissingSupabaseConfigurationError();

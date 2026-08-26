@@ -23,7 +23,7 @@ export function AdminLinkLoginForm() {
       <div className="flex items-start gap-3 rounded-xl border border-line bg-surface-muted p-3.5">
         <Origami className="mt-0.5 size-5 shrink-0 text-brand" aria-hidden="true" />
         <p className="text-sm leading-6 text-ink-muted">
-          Masukkan email admin. Kode OTP enam digit akan dikirim ke inbox kamu.
+          Masukkan email admin. Kode OTP delapan digit akan dikirim ke inbox kamu.
         </p>
       </div>
       <Field

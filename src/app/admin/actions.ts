@@ -36,6 +36,15 @@ function friendlyMutationError(context: string, error: { message?: string; code?
   if (message.includes("pending_stamp_request_exists")) {
     return "Selesaikan request stamp yang masih pending sebelum melakukan penyesuaian manual.";
   }
+  if (message.includes("customer_not_found")) {
+    return "Customer sudah tidak ditemukan. Kembali ke daftar customer lalu muat data terbaru.";
+  }
+  if (message.includes("only_customer_accounts_can_be_deleted")) {
+    return "Akun admin tidak dapat dihapus dari menu customer.";
+  }
+  if (message.includes("admin_cannot_delete_self")) {
+    return "Admin tidak dapat menghapus akunnya sendiri dari menu customer.";
+  }
   if (message.includes("completed_card_reward_not_available_for_reversal")) {
     return "Completion tidak dapat dibuka ulang karena reward sudah ditebus atau tidak lagi tersedia.";
   }
@@ -173,25 +182,19 @@ export async function deleteCustomerAction(
   if (!parsed.success) return failure("Ketik HAPUS untuk mengonfirmasi penghapusan permanen.");
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("admin_prepare_customer_deletion", {
+  const { error } = await supabase.rpc("admin_delete_customer_account", {
     p_user_id: parsed.data.customerId,
   });
 
   if (error) {
+    const missingMigration = error.code === "PGRST202" || (
+      error.message.toLowerCase().includes("admin_delete_customer_account") &&
+      error.message.toLowerCase().includes("schema cache")
+    );
+    if (missingMigration) {
+      return failure("Migration penghapusan akun belum diterapkan. Jalankan `npx supabase db push` ke project production lalu coba kembali.");
+    }
     return failure(friendlyMutationError("delete-customer", error));
-  }
-
-  let adminClient;
-  try {
-    adminClient = createAdminClient();
-  } catch {
-    return failure("Service penghapusan akun belum dikonfigurasi di Vercel.");
-  }
-
-  const { error: deleteError } = await adminClient.auth.admin.deleteUser(parsed.data.customerId);
-  if (deleteError) {
-    console.error("[admin:delete-auth-user]", deleteError.message);
-    return failure("Akun belum berhasil dihapus. Tidak ada data yang dihapus; coba lagi sebentar.");
   }
 
   revalidatePath("/admin");
