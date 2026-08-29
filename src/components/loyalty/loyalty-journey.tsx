@@ -21,6 +21,49 @@ const stateCopy = {
   locked: { label: "Terkunci", tone: "neutral" as const },
 };
 
+function applyOptimisticGrant(
+  currentCards: LoyaltyCardView[],
+  detail: LoyaltyStampGrantedDetail,
+): LoyaltyCardView[] {
+  const target = currentCards.find((card) => card.id === detail.memberCardId);
+  if (!target || target.latestEventId === detail.eventId || target.status !== "active") {
+    return currentCards;
+  }
+
+  const nextStampCount = Math.min(STAMPS_PER_CARD, target.stampsCount + detail.quantity);
+  const completed = nextStampCount === STAMPS_PER_CARD;
+
+  if (completed && target.sequenceNo === TOTAL_CARDS) {
+    return currentCards.map((card) => ({
+      ...card,
+      status: card.sequenceNo === 1 ? "active" as const : "locked" as const,
+      stampsCount: 0,
+      pendingCount: 0,
+      hasPendingRequest: false,
+      latestApprovedCount: card.id === target.id ? detail.quantity : 0,
+      latestEventId: card.id === target.id ? detail.eventId : card.latestEventId,
+    }));
+  }
+
+  return currentCards.map((card) => {
+    if (card.id === target.id) {
+      return {
+        ...card,
+        status: completed ? "completed" as const : "active" as const,
+        stampsCount: nextStampCount,
+        pendingCount: 0,
+        hasPendingRequest: false,
+        latestApprovedCount: detail.quantity,
+        latestEventId: detail.eventId,
+      };
+    }
+    if (completed && card.sequenceNo === target.sequenceNo + 1) {
+      return { ...card, status: "active" as const };
+    }
+    return card;
+  });
+}
+
 function JourneyIndicator({
   cards,
   onSelect,
@@ -205,57 +248,33 @@ function LoyaltyCard({
 
 export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardView[] }) {
   const elements = useRef(new Map<string, HTMLElement>());
-  const [cards, setCards] = useState(incomingCards);
+  const [optimisticGrants, setOptimisticGrants] = useState<LoyaltyStampGrantedDetail[]>([]);
   const [sheetCardId, setSheetCardId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    setCards(incomingCards);
-  }, [incomingCards]);
+  const cards = useMemo(() => {
+    const acknowledgedGrantIndex = new Map<string, number>();
+    optimisticGrants.forEach((grant, index) => {
+      const currentCard = incomingCards.find((card) => card.id === grant.memberCardId);
+      if (currentCard?.latestEventId === grant.eventId) {
+        acknowledgedGrantIndex.set(grant.memberCardId, index);
+      }
+    });
+
+    return optimisticGrants.reduce<LoyaltyCardView[]>((currentCards, grant, index) => {
+      const acknowledgedAt = acknowledgedGrantIndex.get(grant.memberCardId) ?? -1;
+      return index <= acknowledgedAt ? currentCards : applyOptimisticGrant(currentCards, grant);
+    }, incomingCards);
+  }, [incomingCards, optimisticGrants]);
 
   useEffect(() => {
     const applyGrantedStamps = (event: Event) => {
       const detail = (event as CustomEvent<LoyaltyStampGrantedDetail>).detail;
       if (!detail?.eventId || !detail.memberCardId || detail.quantity < 1) return;
 
-      setCards((currentCards) => {
-        const target = currentCards.find((card) => card.id === detail.memberCardId);
-        if (!target || target.latestEventId === detail.eventId || target.status !== "active") {
-          return currentCards;
-        }
-
-        const nextStampCount = Math.min(STAMPS_PER_CARD, target.stampsCount + detail.quantity);
-        const completed = nextStampCount === STAMPS_PER_CARD;
-
-        if (completed && target.sequenceNo === TOTAL_CARDS) {
-          return currentCards.map((card) => ({
-            ...card,
-            status: card.sequenceNo === 1 ? "active" : "locked",
-            stampsCount: 0,
-            pendingCount: 0,
-            hasPendingRequest: false,
-            latestApprovedCount: card.id === target.id ? detail.quantity : 0,
-            latestEventId: card.id === target.id ? detail.eventId : card.latestEventId,
-          }));
-        }
-
-        return currentCards.map((card) => {
-          if (card.id === target.id) {
-            return {
-              ...card,
-              status: completed ? "completed" : "active",
-              stampsCount: nextStampCount,
-              pendingCount: 0,
-              hasPendingRequest: false,
-              latestApprovedCount: detail.quantity,
-              latestEventId: detail.eventId,
-            };
-          }
-          if (completed && card.sequenceNo === target.sequenceNo + 1) {
-            return { ...card, status: "active" };
-          }
-          return card;
-        });
+      setOptimisticGrants((currentGrants) => {
+        if (currentGrants.some((grant) => grant.eventId === detail.eventId)) return currentGrants;
+        return [...currentGrants, detail].slice(-20);
       });
     };
 

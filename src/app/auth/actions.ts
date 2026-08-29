@@ -29,39 +29,43 @@ function values(formData: FormData, names: string[]) {
   return Object.fromEntries(names.map((name) => [name, String(formData.get(name) ?? "")])) as Record<string, string>;
 }
 
-async function initializeCustomerLoyalty(
+function friendlyLoyaltySetupError(message?: string) {
+  const normalized = message?.toLowerCase() ?? "";
+  if (normalized.includes("date_of_birth_required")) {
+    return "Tanggal lahir belum tersimpan. Lengkapi data profile lalu buka kembali loyalty card.";
+  }
+  if (normalized.includes("terms_acceptance_required")) {
+    return "Persetujuan syarat dan ketentuan belum tersimpan. Lengkapi pendaftaran lalu coba lagi.";
+  }
+  if (normalized.includes("active_loyalty_program_not_found")) {
+    return "Program loyalty sedang tidak aktif. Hubungi admin Kira Kira Michi.";
+  }
+  if (normalized.includes("seven_active_card_definitions")) {
+    return "Konfigurasi tujuh card loyalty belum lengkap. Hubungi admin untuk melengkapi program.";
+  }
+  if (normalized.includes("customer_role_required")) {
+    return "Akun ini bukan customer. Gunakan halaman login admin untuk masuk ke workspace.";
+  }
+  return "Kartu loyalty belum dapat disiapkan saat ini. Sesi kamu tetap aman; coba buka kembali beberapa saat lagi.";
+}
+
+async function ensureCustomerLoyalty(
   supabase: Awaited<ReturnType<typeof createClient>>,
-) {
+) : Promise<{ ok: true } | { ok: false; message: string }> {
   const { error: joinError } = await supabase.rpc("join_loyalty_program", {
     p_program_slug: PROGRAM_SLUG,
   });
 
   if (joinError) {
     console.error("[auth:loyalty-join]", joinError.message);
-    return false;
+    return { ok: false, message: friendlyLoyaltySetupError(joinError.message) };
   }
 
-  const { data, error } = await supabase.rpc("get_my_loyalty_state", {
-    p_program_slug: PROGRAM_SLUG,
-  });
-  if (error || !data || typeof data !== "object" || Array.isArray(data)) {
-    console.error("[auth:loyalty-ready]", error?.message ?? "invalid loyalty state");
-    return false;
-  }
-
-  const state = data as {
-    profile?: { role?: unknown } | null;
-    program?: { total_cards?: unknown } | null;
-    member_program?: unknown;
-    cards?: unknown;
-  };
-  const expectedCards = state.program?.total_cards;
-
-  return state.profile?.role === "customer" &&
-    Boolean(state.member_program) &&
-    Array.isArray(state.cards) &&
-    typeof expectedCards === "number" &&
-    state.cards.length === expectedCards;
+  // `join_loyalty_program` is a single database transaction: on success it
+  // creates/reuses the membership and completes all seven cards. Do not make
+  // login depend on a second aggregate read, because a transient read/cache
+  // delay used to sign valid users back out immediately after authentication.
+  return { ok: true };
 }
 
 export async function loginAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -75,23 +79,43 @@ export async function loginAction(_previous: AuthState, formData: FormData): Pro
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { status: "error", message: friendlyAuthMessage(error.message, "login"), fields };
+  const { data: signInData, error } = await supabase.auth.signInWithPassword(parsed.data);
+  if (error || !signInData.user) {
+    return { status: "error", message: friendlyAuthMessage(error?.message, "login"), fields };
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[auth:login-profile]", profileError.message);
+    return {
+      status: "error",
+      message: "Akun berhasil diverifikasi, tetapi profil belum dapat dibaca. Coba lagi beberapa saat lagi.",
+      fields,
+    };
+  }
+
+  if (profile?.role === "admin") {
+    revalidatePath("/", "layout");
+    redirect("/admin");
+  }
+
+  if (profile && profile.role !== "customer") {
+    return { status: "error", message: "Jenis akun belum dikenali. Hubungi admin Kira Kira Michi.", fields };
+  }
 
   const returnPath = safeReturnPath(formData.get("next"));
-  if (returnPath === "/join" || returnPath.startsWith("/loyalty")) {
-    if (!await initializeCustomerLoyalty(supabase)) {
-      await supabase.auth.signOut();
-      return {
-        status: "error",
-        message: "Akun sudah benar, tetapi kartu loyalty belum dapat disiapkan. Coba masuk kembali; jika berulang, hubungi admin.",
-        fields,
-      };
-    }
+  const setup = await ensureCustomerLoyalty(supabase);
+  if (!setup.ok) {
+    return { status: "error", message: setup.message, fields };
   }
 
   revalidatePath("/", "layout");
-  redirect(returnPath);
+  redirect(returnPath === "/join" || returnPath.startsWith("/loyalty") ? returnPath : "/loyalty");
 }
 
 export async function registerAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
@@ -172,10 +196,11 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
   }
 
   if (data.session) {
-    if (!await initializeCustomerLoyalty(supabase)) {
+    const setup = await ensureCustomerLoyalty(supabase);
+    if (!setup.ok) {
       return {
         status: "error",
-        message: "Akun berhasil dibuat, tetapi kartu loyalty belum selesai disiapkan. Masuk kembali; sistem akan mencoba menyiapkannya lagi.",
+        message: setup.message,
         fields,
       };
     }
@@ -310,10 +335,11 @@ export async function verifyEmailOtpAction(
     return { status: "error", message: "Akun admin harus masuk melalui halaman login admin." };
   }
 
-  if (!await initializeCustomerLoyalty(supabase)) {
+  const setup = await ensureCustomerLoyalty(supabase);
+  if (!setup.ok) {
     return {
       status: "error",
-      message: "Email sudah terverifikasi, tetapi kartu loyalty belum selesai disiapkan. Silakan masuk; sistem akan mencoba menyiapkannya kembali.",
+      message: setup.message,
     };
   }
 
