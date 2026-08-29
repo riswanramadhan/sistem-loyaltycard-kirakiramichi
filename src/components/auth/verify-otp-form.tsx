@@ -72,9 +72,9 @@ export function VerifyOtpForm({
           {expired ? (
             <strong className="text-danger">Kode sudah kedaluwarsa. Kirim kode baru.</strong>
           ) : !hasSendTime ? (
-            <span>Kode berlaku <strong className="text-ink">1 jam sejak email dikirim</strong>.</span>
+            <span>Kode berlaku <strong className="text-ink">5 menit sejak email dikirim</strong>.</span>
           ) : (
-            <span>Kode berlaku 1 jam · tersisa <strong className="tabular-nums text-ink">{formatTime(timing.remaining)}</strong></span>
+            <span>Kode berlaku 5 menit · tersisa <strong className="tabular-nums text-ink">{formatTime(timing.remaining)}</strong></span>
           )}
         </div>
       </div>

@@ -10,6 +10,10 @@ import { StampGrid } from "@/components/loyalty/stamp-grid";
 import type { LoyaltyCardView } from "@/components/loyalty/types";
 import { cn } from "@/lib/utils";
 import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
+import {
+  LOYALTY_STAMP_GRANTED_EVENT,
+  type LoyaltyStampGrantedDetail,
+} from "@/lib/loyalty/realtime-events";
 
 const stateCopy = {
   active: { label: "Aktif", tone: "brand" as const },
@@ -199,10 +203,65 @@ function LoyaltyCard({
   );
 }
 
-export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
+export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardView[] }) {
   const elements = useRef(new Map<string, HTMLElement>());
+  const [cards, setCards] = useState(incomingCards);
   const [sheetCardId, setSheetCardId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCards(incomingCards);
+  }, [incomingCards]);
+
+  useEffect(() => {
+    const applyGrantedStamps = (event: Event) => {
+      const detail = (event as CustomEvent<LoyaltyStampGrantedDetail>).detail;
+      if (!detail?.eventId || !detail.memberCardId || detail.quantity < 1) return;
+
+      setCards((currentCards) => {
+        const target = currentCards.find((card) => card.id === detail.memberCardId);
+        if (!target || target.latestEventId === detail.eventId || target.status !== "active") {
+          return currentCards;
+        }
+
+        const nextStampCount = Math.min(STAMPS_PER_CARD, target.stampsCount + detail.quantity);
+        const completed = nextStampCount === STAMPS_PER_CARD;
+
+        if (completed && target.sequenceNo === TOTAL_CARDS) {
+          return currentCards.map((card) => ({
+            ...card,
+            status: card.sequenceNo === 1 ? "active" : "locked",
+            stampsCount: 0,
+            pendingCount: 0,
+            hasPendingRequest: false,
+            latestApprovedCount: card.id === target.id ? detail.quantity : 0,
+            latestEventId: card.id === target.id ? detail.eventId : card.latestEventId,
+          }));
+        }
+
+        return currentCards.map((card) => {
+          if (card.id === target.id) {
+            return {
+              ...card,
+              status: completed ? "completed" : "active",
+              stampsCount: nextStampCount,
+              pendingCount: 0,
+              hasPendingRequest: false,
+              latestApprovedCount: detail.quantity,
+              latestEventId: detail.eventId,
+            };
+          }
+          if (completed && card.sequenceNo === target.sequenceNo + 1) {
+            return { ...card, status: "active" };
+          }
+          return card;
+        });
+      });
+    };
+
+    window.addEventListener(LOYALTY_STAMP_GRANTED_EVENT, applyGrantedStamps);
+    return () => window.removeEventListener(LOYALTY_STAMP_GRANTED_EVENT, applyGrantedStamps);
+  }, []);
 
   const activeCard = useMemo(
     () => cards.find((card) => card.id === sheetCardId) ?? null,

@@ -32,7 +32,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_SITE_URL=https://kirakiraloyaltycard.web.id
 ```
 
-Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. Aplikasi Next.js tidak membutuhkan service-role key; operasi undangan admin berjalan di Supabase Edge Function.
+Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. Aplikasi Next.js tidak membutuhkan service-role key; undangan admin memakai RPC database yang memeriksa role, lalu Supabase Auth mengirim OTP.
 
 Hubungkan Supabase CLI lalu push migration:
 
@@ -40,8 +40,6 @@ Hubungkan Supabase CLI lalu push migration:
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
-npx supabase functions deploy invite-admin
-npx supabase secrets set SITE_URL=https://kirakiraloyaltycard.web.id
 ```
 
 ## Setup OTP Auth Supabase
@@ -52,7 +50,7 @@ Di Supabase Dashboard > Authentication > URL Configuration:
 - **Redirect URLs**: tambahkan `https://kirakiraloyaltycard.web.id/auth/callback**`
 - Tambahkan `https://kirakiraloyaltycard.web.id/auth/confirm**` untuk reset password dan fallback link server-side.
 - Pertahankan **Confirm email** aktif agar signup mengirim OTP.
-- Atur **Email OTP length** ke `8` dan **Email OTP expiration** ke `3600` detik (1 jam). Nilai yang sama sudah ditetapkan di `supabase/config.toml` untuk local development.
+- Atur **Email OTP length** ke `8` dan **Email OTP expiration** ke `300` detik (5 menit). Nilai yang sama sudah ditetapkan di `supabase/config.toml` untuk local development.
 
 Di Supabase Dashboard > Authentication > Email Templates:
 
@@ -72,40 +70,27 @@ Setelah SMTP aktif:
 1. Gunakan domain pengirim yang sudah memiliki SPF, DKIM, dan DMARC.
 2. Matikan link tracking di penyedia SMTP agar URL autentikasi tidak ditulis ulang dan menjadi rusak.
 3. Di Authentication > Sign In / Providers > Email, pertahankan **Confirm email** aktif.
-4. Gunakan masa berlaku OTP 3600 detik dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
+4. Gunakan masa berlaku OTP 300 detik dan pertahankan jeda pengiriman minimal 60 detik untuk mengurangi abuse.
 5. Kirim email percobaan untuk signup, reset password, dan login admin dari domain production sebelum go-live.
 
 ## Admin Production
 
-Setelah migration terbaru berhasil dipush, siapkan admin awal yang diminta:
+Setelah migration terbaru berhasil dipush, siapkan admin awal yang diminta dengan menjalankan seluruh isi `supabase/sql/create-primary-admin.sql` di Supabase Dashboard > SQL Editor:
 
 ```text
 Email: kirakiramichi@dekatlokal.com
-Password awal: tersimpan hanya di `.env.local` lokal dan tidak di-commit
+Password awal: `Kirakiramichi0110!`
 ```
 
-Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
-
-```powershell
-$env:NEXT_PUBLIC_SUPABASE_URL="https://PROJECT_REF.supabase.co"
-$env:SUPABASE_SECRET_KEY="SB_SECRET_KEY_PRODUCTION"
-$env:BOOTSTRAP_ADMIN_EMAIL="kirakiramichi@dekatlokal.com"
-npm run admin:bootstrap
-Remove-Item Env:NEXT_PUBLIC_SUPABASE_URL
-Remove-Item Env:SUPABASE_SECRET_KEY
-Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
-```
-
-Perintah `npm run admin:bootstrap` otomatis membaca `.env.local`. Tambahkan satu kali `SUPABASE_SECRET_KEY` ke file lokal tersebut sebelum menjalankan bootstrap, lalu hapus key itu kembali setelah akun berhasil dibuat. Jangan pernah mengirim service key ke browser atau menyimpannya di Vercel.
-
-Skrip bersifat idempotent: akun utama dibuat/diperbarui dan dipromosikan menjadi admin. Pada eksekusi awal saja, semua akun admin lama dihentikan setelah kepemilikan audit dipindahkan ke admin utama. Penanda aman kemudian disimpan di metadata agar admin tambahan yang dibuat setelahnya tidak ikut terhapus saat bootstrap dijalankan ulang. Migrasi terbaru wajib dipush sebelum bootstrap. Password dapat diganti dari profile atau alur **Lupa password**.
+SQL tersebut idempotent: akun dibuat bila belum ada, atau password dan role diperbarui bila sudah ada. Ganti password awal setelah login pertama. Jangan membagikan atau menyimpan salinan SQL berpassword di tempat publik.
 
 Admin tambahan dibuat hanya dari `/admin/admins`:
 
 1. Admin aktif membuka menu **Akun admin**.
 2. Isi nama dan email baru, termasuk Gmail.
-3. Supabase Edge Function membuat akun dan mengirim template email undangan bermerek.
-4. Admin baru mengaktifkan akun melalui tautan di email, tanpa secret key di Vercel.
+3. RPC database menyimpan undangan setelah memverifikasi role admin.
+4. Supabase Auth membuat akun undangan dan mengirim OTP bermerek; saat akun dibuat, trigger memberi role admin berdasarkan undangan aktif.
+5. Admin baru membuka tombol di email, memasukkan OTP delapan digit, lalu langsung masuk workspace.
 
 Tidak ada registrasi admin publik. Customer biasa tidak dapat mempromosikan diri sendiri; role selalu diperiksa lagi di database.
 
@@ -193,8 +178,8 @@ Admin:
 - Jalankan seluruh migration dan seed card definition.
 - Set Site URL Auth ke domain Vercel/production.
 - Salin template HTML bermerek dari `supabase/templates` ke Email Templates Supabase dan pastikan kode `{{ .Token }}` tampil pada signup serta Magic Link/OTP.
-- Deploy Edge Function `invite-admin`; undangan admin tambahan dan penghapusan customer tidak bergantung pada secret key di Vercel.
-- Jalankan `npm run admin:bootstrap`, login, lalu ganti password awal.
+- Pastikan migration `20260830000400_passwordless_admin_invitations.sql` sudah diterapkan; undangan admin tidak memakai Edge Function maupun secret key Vercel.
+- Jalankan `supabase/sql/create-primary-admin.sql`, login, lalu ganti password awal.
 - Aktifkan Realtime untuk tabel yang disertakan migration.
 - Ubah judul/deskripsi reward netral dari `/admin/program` sebelum go-live.
 - Jalankan [UAT](docs/UAT.md) dan [security runbook](docs/SECURITY.md) terhadap project staging.

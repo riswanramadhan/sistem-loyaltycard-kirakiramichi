@@ -269,7 +269,7 @@ export async function verifyEmailOtpAction(
   if (parsed.data.sentAt && isEmailOtpExpired(parsed.data.sentAt)) {
     return {
       status: "error",
-      message: "Kode OTP sudah melewati masa berlaku 1 jam. Minta kode baru untuk melanjutkan.",
+      message: "Kode OTP sudah melewati masa berlaku 5 menit. Minta kode baru untuk melanjutkan.",
     };
   }
 
@@ -367,7 +367,7 @@ export async function resendEmailOtpAction(
 
   return {
     status: "success",
-    message: `Kode OTP ${EMAIL_OTP_LENGTH} digit yang baru sudah dikirim. Kode berlaku 1 jam.`,
+    message: `Kode OTP ${EMAIL_OTP_LENGTH} digit yang baru sudah dikirim. Kode berlaku 5 menit.`,
     fields: { sentAt: String(Date.now()) },
   };
 }

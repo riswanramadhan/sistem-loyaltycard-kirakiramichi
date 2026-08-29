@@ -75,6 +75,7 @@ export default async function LoyaltyPage() {
         pendingCount > 0 || (row.status === "active" && hasAnyPendingRequest),
       latestApprovedCount:
         latestEvent?.member_card_id === row.id ? Math.max(0, latestEvent.quantity) : 0,
+      latestEventId: latestEvent?.member_card_id === row.id ? latestEvent.id : null,
     };
   });
 

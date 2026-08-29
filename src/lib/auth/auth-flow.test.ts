@@ -9,13 +9,13 @@ import {
 describe("OTP auth contract", () => {
   it("uses the same eight-digit contract as the Supabase project", () => {
     expect(EMAIL_OTP_LENGTH).toBe(8);
-    expect(EMAIL_OTP_EXPIRY_SECONDS).toBe(3600);
+    expect(EMAIL_OTP_EXPIRY_SECONDS).toBe(300);
   });
 
-  it("only treats a challenge as expired after one hour", () => {
+  it("only treats a challenge as expired after five minutes", () => {
     const sentAt = Date.UTC(2026, 7, 27, 10, 0, 0);
-    expect(isEmailOtpExpired(sentAt, sentAt + 3599_000)).toBe(false);
-    expect(isEmailOtpExpired(sentAt, sentAt + 3600_000)).toBe(true);
+    expect(isEmailOtpExpired(sentAt, sentAt + 299_000)).toBe(false);
+    expect(isEmailOtpExpired(sentAt, sentAt + 300_000)).toBe(true);
   });
 
   it("does not mislabel Supabase's combined invalid-token response as expired", () => {

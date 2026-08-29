@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { friendlyAuthMessage } from "@/lib/auth/auth-errors";
+import { getAuthRedirectOrigin } from "@/lib/request-url";
 import { createClient } from "@/lib/supabase/server";
 
 export type AdminActionState = {
@@ -108,27 +110,45 @@ export async function createAdminAccountAction(
   if (!parsed.success) return failure(parsed.error.issues[0]?.message ?? "Data admin belum valid.");
 
   const supabase = await createClient();
-  const { error } = await supabase.functions.invoke("invite-admin", {
-    body: { fullName: parsed.data.fullName, email: parsed.data.email },
+  const { error: invitationError } = await supabase.rpc("admin_create_email_invitation", {
+    p_email: parsed.data.email,
+    p_full_name: parsed.data.fullName,
   });
 
-  if (error) {
-    let code = "";
-    const context = "context" in error ? error.context : null;
-    if (context instanceof Response) {
-      const body = await context.clone().json().catch(() => null) as { error?: string } | null;
-      code = body?.error ?? "";
+  if (invitationError) {
+    console.error("[admin:invite-admin-rpc]", { code: invitationError.code, message: invitationError.message });
+    if (invitationError.code === "PGRST202") {
+      return failure("Migration undangan admin belum diterapkan. Jalankan SQL migration terbaru di Supabase lalu coba lagi.");
     }
-    console.error("[admin:invite-admin]", { code, message: error.message });
-    if (code === "email_already_registered") return failure("Email ini sudah mempunyai akun. Gunakan email admin lain.");
-    if (code === "admin_access_required" || code === "authentication_required") {
-      return failure("Sesi admin tidak valid. Silakan masuk kembali lalu ulangi.");
-    }
-    return failure("Undangan admin belum berhasil dikirim. Periksa deployment fungsi Supabase lalu coba lagi.");
+    return failure(friendlyMutationError("invite-admin", invitationError));
+  }
+
+  let origin: string;
+  try {
+    origin = await getAuthRedirectOrigin();
+  } catch {
+    return failure("Domain autentikasi belum dikonfigurasi dengan aman.");
+  }
+
+  const { error: emailError } = await supabase.auth.signInWithOtp({
+    email: parsed.data.email,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${origin}/auth/confirm?next=/admin`,
+      data: {
+        full_name: parsed.data.fullName,
+        account_type: "admin_invite",
+      },
+    },
+  });
+
+  if (emailError) {
+    console.error("[admin:invite-admin-email]", { message: emailError.message });
+    return failure(`Akses admin sudah disiapkan, tetapi email OTP belum terkirim. ${friendlyAuthMessage(emailError.message, "otp")}`);
   }
 
   revalidatePath("/admin/admins");
-  return success(`Undangan admin sudah dikirim ke ${parsed.data.email}.`);
+  return success(`Undangan dan OTP admin berhasil dikirim ke ${parsed.data.email}. Kode berlaku 5 menit.`);
 }
 
 export async function deleteCustomerAction(

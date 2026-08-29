@@ -12,7 +12,7 @@ export function CustomerShell({
   userId: string;
 }) {
   return (
-    <div className="min-h-svh pb-24">
+    <div>
       <a
         href="#main-content"
         className="fixed left-3 top-3 z-[80] -translate-y-24 rounded-xl bg-ink px-4 py-2 text-sm font-bold text-white transition focus:translate-y-0 motion-reduce:transition-none"
@@ -32,7 +32,7 @@ export function CustomerShell({
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-5xl px-4 py-6 outline-none sm:px-6 sm:py-8"
+        className="mx-auto w-full max-w-5xl px-4 pb-4 pt-5 outline-none sm:px-6 sm:py-8"
       >
         {children}
       </main>

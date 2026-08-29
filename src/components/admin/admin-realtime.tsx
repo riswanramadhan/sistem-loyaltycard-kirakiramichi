@@ -36,7 +36,7 @@ export function AdminRealtime({ adminId }: { adminId: string }) {
     trailingTimer.current = window.setTimeout(() => {
       refreshAuthoritativeState();
       trailingTimer.current = null;
-    }, 260);
+    }, 100);
   }, [refreshAuthoritativeState]);
 
   const announce = useCallback((detail: AdminFeedbackDetail) => {

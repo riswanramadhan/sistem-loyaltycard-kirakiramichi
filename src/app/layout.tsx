@@ -55,7 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="id">
       <body>
-        <div className="min-h-svh">{children}</div>
+        <div>{children}</div>
         <SiteFooter />
       </body>
     </html>

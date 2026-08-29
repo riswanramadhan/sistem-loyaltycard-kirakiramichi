@@ -17,6 +17,7 @@ const completeRealtime = migration("20260827000200_complete_realtime_publication
 const birthdayAndTerms = migration("20260830000100_customer_birthday_and_terms.sql");
 const cycles = migration("20260830000200_seven_card_six_stamp_cycles.sql");
 const cycleRead = migration("20260830000300_cycle_aware_customer_read.sql");
+const passwordlessAdminInvites = migration("20260830000400_passwordless_admin_invitations.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -154,23 +155,22 @@ describe("Supabase migration contract", () => {
     expect(customerDelete).toContain("perform public.admin_prepare_customer_deletion");
     expect(customerDelete).toContain("delete from auth.users");
     expect(customerDelete).toContain("grant execute on function public.admin_delete_customer_account(uuid) to authenticated");
-    const inviteAdmin = readFileSync(
-      join(process.cwd(), "supabase", "functions", "invite-admin", "index.ts"),
-      "utf8",
-    ).toLowerCase();
-    expect(inviteAdmin).toContain("callerprofile?.role !== \"admin\"");
-    expect(inviteAdmin).toContain("inviteuserbyemail");
-    expect(inviteAdmin).toContain("supabase_service_role_key");
-    expect(inviteAdmin).toContain("auth.admin.deleteuser");
+    expect(passwordlessAdminInvites).toContain("create table if not exists public.admin_invitations");
+    expect(passwordlessAdminInvites).toContain("alter table public.admin_invitations enable row level security");
+    expect(passwordlessAdminInvites).toContain("create or replace function public.admin_create_email_invitation");
+    expect(passwordlessAdminInvites).toContain("admin_access_required");
+    expect(passwordlessAdminInvites).toContain("create or replace function public.handle_new_auth_user");
+    expect(passwordlessAdminInvites).toContain("v_role := 'admin'");
+    expect(passwordlessAdminInvites).toContain("grant execute on function public.admin_create_email_invitation(text, text) to authenticated");
   });
 
-  it("keeps the app, local auth, and branded templates on an eight-digit one-hour OTP", () => {
+  it("keeps the app, local auth, and branded templates on an eight-digit five-minute OTP", () => {
     const config = readFileSync(join(process.cwd(), "supabase", "config.toml"), "utf8").toLowerCase();
     const confirmation = readFileSync(join(process.cwd(), "supabase", "templates", "confirmation.html"), "utf8").toLowerCase();
     expect(config).toContain("otp_length = 8");
-    expect(config).toContain("otp_expiry = 3600");
+    expect(config).toContain("otp_expiry = 300");
     expect(confirmation).toContain("8 digit");
-    expect(confirmation).toContain("1 jam");
+    expect(confirmation).toContain("5 menit");
   });
 
   it("ships the full database behavior test suite", () => {

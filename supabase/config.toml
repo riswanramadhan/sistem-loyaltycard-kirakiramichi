@@ -1,15 +1,12 @@
 project_id = "sistem-kirakiramichi"
 
-[functions.invite-admin]
-verify_jwt = true
-
 [db.seed]
 enabled = true
 sql_paths = ["./seed.sql"]
 
 [auth.email]
 otp_length = 8
-otp_expiry = 3600
+otp_expiry = 300
 
 [auth.email.template.confirmation]
 subject = "{{ .Token }} adalah kode verifikasi Kira Kira Michi"

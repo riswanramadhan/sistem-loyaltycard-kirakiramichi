@@ -13,6 +13,7 @@ export type LoyaltyCardView = {
   pendingCount: number;
   hasPendingRequest: boolean;
   latestApprovedCount: number;
+  latestEventId: string | null;
 };
 
 export type RewardStatus = "available" | "redeemed" | "expired";

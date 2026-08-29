@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { ArrowRight, Check, Circle, LoaderCircle } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Circle, LoaderCircle } from "lucide-react";
 import { registerAction, type AuthState } from "@/app/auth/actions";
 import { PasswordField } from "@/components/auth/password-field";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,28 @@ export function RegisterForm() {
       <Field label="Nama lengkap" name="fullName" autoComplete="name" required defaultValue={state.fields?.fullName} placeholder="Nama kamu" />
       <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.fields?.email} placeholder="nama@email.com" />
       <Field label="WhatsApp" name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" required defaultValue={state.fields?.whatsapp} placeholder="08xxxxxxxxxx" hint="Dipakai admin untuk mencocokkan transaksi." />
-      <Field label="Tanggal lahir" name="dateOfBirth" type="date" autoComplete="bday" required defaultValue={state.fields?.dateOfBirth} hint="Wajib diisi untuk benefit ulang tahun, termasuk program merchandise gratis yang berlaku." />
+      <div className="min-w-0 rounded-2xl border border-brand/15 bg-brand-soft/45 p-3.5 sm:p-4">
+        <div className="mb-3 flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-brand shadow-sm">
+            <CalendarDays className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-ink">Benefit ulang tahun</p>
+            <p className="mt-0.5 text-xs leading-5 text-ink-muted">Tanggal lahir wajib diisi untuk program free merchandise.</p>
+          </div>
+        </div>
+        <Field
+          label="Pilih tanggal lahir"
+          name="dateOfBirth"
+          type="date"
+          autoComplete="bday"
+          required
+          min="1900-01-01"
+          defaultValue={state.fields?.dateOfBirth}
+          className="min-w-0 max-w-full appearance-none bg-white [color-scheme:light] [&::-webkit-date-and-time-value]:text-left"
+          hint="Gunakan tanggal lahir sesuai identitas kamu."
+        />
+      </div>
       <PasswordField
         label="Password"
         name="password"

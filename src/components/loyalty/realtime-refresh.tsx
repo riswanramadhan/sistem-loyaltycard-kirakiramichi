@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { BadgeJapaneseYen, CloudRainWind, PartyPopper, Stamp } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { LOYALTY_STAMP_GRANTED_EVENT, type LoyaltyStampGrantedDetail } from "@/lib/loyalty/realtime-events";
 import { cn } from "@/lib/utils";
 
 type ToastKind = "approved" | "rejected" | "completed" | "reward";
@@ -67,7 +68,7 @@ export function RealtimeRefresh({ userId }: { userId: string }) {
     trailingTimer.current = window.setTimeout(() => {
       refreshAuthoritativeState();
       trailingTimer.current = null;
-    }, 260);
+    }, 100);
   }, [refreshAuthoritativeState]);
 
   const announce = useCallback((kind: ToastKind, quantity?: number) => {
@@ -108,9 +109,14 @@ export function RealtimeRefresh({ userId }: { userId: string }) {
         } else reconcile();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "stamp_events", filter: `user_id=eq.${userId}` }, (payload) => {
-        const event = payload.new as { id?: string; stamp_request_id?: string | null; event_type?: string; quantity?: number };
+        const event = payload.new as { id?: string; member_card_id?: string; stamp_request_id?: string | null; event_type?: string; quantity?: number };
         if (event.event_type === "grant") {
           const quantity = Math.max(1, Math.abs(event.quantity ?? 1));
+          if (event.id && event.member_card_id) {
+            window.dispatchEvent(new CustomEvent<LoyaltyStampGrantedDetail>(LOYALTY_STAMP_GRANTED_EVENT, {
+              detail: { eventId: event.id, memberCardId: event.member_card_id, quantity },
+            }));
+          }
           const requestKey = event.stamp_request_id
             ? `request:${event.stamp_request_id}`
             : `event:${event.id ?? sequence.current + 1}`;
