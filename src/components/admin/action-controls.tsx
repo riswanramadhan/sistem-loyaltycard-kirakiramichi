@@ -17,6 +17,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { Field, TextareaField } from "@/components/ui/field";
 import { StatusMessage } from "@/components/ui/status-message";
 import { ADMIN_FEEDBACK_EVENT } from "@/lib/admin-feedback";
+import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
 
 const initialState: AdminActionState = { status: "idle", message: "" };
 
@@ -89,10 +90,11 @@ function ReviewDialog({
   mode: "approve" | "partial" | "reject";
 }) {
   const [state, formAction] = useActionState(reviewStampRequestAction, initialState);
+  const [partialCount, setPartialCount] = useState(1);
   const titleId = useId();
   const isReject = mode === "reject";
   const isPartial = mode === "partial";
-  const approvedCount = isReject ? 0 : isPartial ? 1 : requestedCount;
+  const approvedCount = isReject ? 0 : isPartial ? partialCount : requestedCount;
   const { dialogRef, open, close } = useActionDialog(
     state,
     isReject ? "rejected" : "approved",
@@ -102,7 +104,7 @@ function ReviewDialog({
   const trigger = isReject ? (
     <Button size="sm" variant="ghost" onClick={open}>Tolak</Button>
   ) : isPartial ? (
-    <Button size="sm" variant="outline" onClick={open}>Setujui +1</Button>
+    <Button size="sm" variant="outline" onClick={open}>Atur jumlah</Button>
   ) : (
     <Button size="sm" onClick={open}>Setujui +{requestedCount}</Button>
   );
@@ -122,7 +124,7 @@ function ReviewDialog({
           <input type="hidden" name="requestId" value={requestId} />
           <input type="hidden" name="customerId" value={customerId} />
           <input type="hidden" name="action" value={isReject ? "reject" : "approve"} />
-          <input type="hidden" name="approvedCount" value={approvedCount} />
+          {isPartial ? null : <input type="hidden" name="approvedCount" value={approvedCount} />}
 
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -146,6 +148,23 @@ function ReviewDialog({
             minLength={isReject ? 3 : undefined}
             maxLength={500}
           />
+
+          {isPartial ? (
+            <label className="grid gap-2 text-sm font-bold text-ink">
+              Jumlah stamp yang disetujui
+              <select
+                name="approvedCount"
+                value={partialCount}
+                onChange={(event) => setPartialCount(Number(event.target.value))}
+                className="min-h-12 w-full rounded-xl border border-line bg-white px-3.5 font-normal text-ink outline-none focus:border-brand focus:ring-3 focus:ring-brand/15"
+              >
+                {Array.from({ length: Math.max(1, requestedCount - 1) }, (_, index) => index + 1).map((value) => (
+                  <option key={value} value={value}>Setujui +{value} stamp</option>
+                ))}
+              </select>
+              <span className="text-xs font-normal text-ink-muted">Customer meminta +{requestedCount}; pilih jumlah valid yang benar-benar disetujui.</span>
+            </label>
+          ) : null}
 
           {state.status === "error" ? <StatusMessage>{state.message}</StatusMessage> : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -201,7 +220,7 @@ function AdjustmentDialog({
   const titleId = useId();
   const granting = quantity > 0;
   const eligibleCards = granting
-    ? cards.filter((card) => card.status === "active" && card.stamps < 8)
+    ? cards.filter((card) => card.status === "active" && card.stamps < STAMPS_PER_CARD)
     : cards.filter(
         (card) =>
           (card.status === "active" && card.stamps > 0) ||
@@ -239,8 +258,8 @@ function AdjustmentDialog({
                 {granting
                   ? "Penyesuaian tercatat permanen di stamp ledger beserta alasan dan admin pelaksana."
                   : reversesCompletion
-                    ? completionReversalCard?.sequence === 6
-                      ? "1 stamp akan dicabut, reward dibatalkan, dan program customer kembali aktif. Semua perubahan tercatat di ledger."
+                    ? completionReversalCard?.sequence === TOTAL_CARDS
+                      ? "1 stamp akan dicabut, reward putaran terakhir dibatalkan, dan kartu terakhir dibuka kembali. Semua perubahan tercatat di ledger."
                       : "1 stamp akan dicabut, reward dibatalkan, dan kartu berikutnya dikunci kembali. Semua perubahan tercatat di ledger."
                     : "Penyesuaian tercatat permanen di stamp ledger beserta alasan dan admin pelaksana."}
               </p>
@@ -258,7 +277,7 @@ function AdjustmentDialog({
             >
               {eligibleCards.map((card) => (
                 <option key={card.id} value={card.id}>
-                  Card {card.sequence} · {card.title} · {card.stamps}/8
+                  Card {card.sequence} · {card.title} · {card.stamps}/{STAMPS_PER_CARD}
                   {card.status === "completed" ? " · buka ulang kartu" : ""}
                 </option>
               ))}
@@ -412,7 +431,7 @@ export function ProgramDefinitionForm({ definition }: { definition: ProgramDefin
               hint="Kosongkan jika reward tidak memiliki masa berlaku."
             />
             <p className="rounded-xl border border-line bg-surface-muted px-3.5 py-3 text-xs leading-5 text-ink-muted">
-              Definisi tetap aktif agar progres enam kartu konsisten. Jeda seluruh program melalui pengaturan program.
+              Definisi tetap aktif agar progres tujuh kartu konsisten. Jeda seluruh program melalui pengaturan program.
             </p>
           </div>
           <div className="sm:col-span-2">

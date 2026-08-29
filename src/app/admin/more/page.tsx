@@ -7,7 +7,7 @@ const links = [
   { href: "/admin/program", label: "Program & reward", copy: "Atur copy kartu, reward, dan status program.", icon: SlidersHorizontal },
   { href: "/admin/qr", label: "QR loyalty", copy: "Tampilkan atau unduh QR untuk customer.", icon: QrCode },
   { href: "/admin/audit", label: "Audit stamp", copy: "Lihat ledger perubahan stamp.", icon: BookOpenCheck },
-  { href: "/admin/admins", label: "Akun admin", copy: "Tambah admin baru dengan OTP login email.", icon: UsersRound },
+  { href: "/admin/admins", label: "Akun admin", copy: "Undang admin baru langsung melalui email.", icon: UsersRound },
 ];
 
 export default function AdminMorePage() {

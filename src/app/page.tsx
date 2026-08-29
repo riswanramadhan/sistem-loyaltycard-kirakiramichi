@@ -66,12 +66,12 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Loyalty Card 1</p>
-                <p className="mt-1 text-2xl font-extrabold">5 of 8 stamps</p>
+                <p className="mt-1 text-2xl font-extrabold">5 dari 6 stamp</p>
               </div>
               <span className="rounded-full bg-brand-soft px-3 py-1.5 text-xs font-bold text-brand">Active</span>
             </div>
-            <div className="mt-8 grid grid-cols-4 gap-3" aria-label="Contoh lima dari delapan stamp">
-              {Array.from({ length: 8 }, (_, index) => (
+            <div className="mt-8 grid grid-cols-3 gap-3" aria-label="Contoh lima dari enam stamp">
+              {Array.from({ length: 6 }, (_, index) => (
                 <span
                   key={index}
                   className={
@@ -85,7 +85,7 @@ export default function HomePage() {
               ))}
             </div>
             <div className="mt-7 rounded-xl bg-warning-soft p-4">
-              <p className="text-sm font-extrabold text-ink">Tinggal 3 stamp lagi</p>
+              <p className="text-sm font-extrabold text-ink">Tinggal 1 stamp lagi</p>
               <p className="mt-1 text-xs leading-5 text-ink-muted">Selesaikan card ini untuk membuka reward berikutnya.</p>
             </div>
           </Card>

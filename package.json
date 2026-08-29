@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
+    "admin:bootstrap": "node --env-file=.env.local scripts/bootstrap-admin.mjs",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "engines": {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Gift, Sparkles } from "lucide-react";
+import { ArrowRight, Gift, Sparkles, Trophy } from "lucide-react";
 import { LoyaltyJourney } from "@/components/loyalty/loyalty-journey";
 import { firstName } from "@/components/loyalty/format";
 import type { LoyaltyCardStatus, LoyaltyCardView } from "@/components/loyalty/types";
@@ -23,7 +23,7 @@ function MembershipEmpty({ name }: { name: string }) {
       </span>
       <h2 className="mt-5 text-xl font-extrabold text-ink">Siap mulai, {name}?</h2>
       <p className="mt-2 text-sm leading-6 text-ink-muted">
-        Aktifkan membership sekali saja, lalu enam loyalty card kamu akan siap dikumpulkan.
+        Aktifkan membership sekali saja, lalu tujuh loyalty card kamu akan siap dikumpulkan.
       </p>
       <Link
         href="/join"
@@ -81,10 +81,8 @@ export default async function LoyaltyPage() {
   const active = cards.find((card) => card.status === "active") ?? null;
   const completedCards = cards.filter((card) => card.status === "completed").length;
   const remaining = active ? Math.max(0, program.stamps_per_card - active.stampsCount) : 0;
-  const journeyComplete = membership.status === "completed" || completedCards >= program.total_cards;
-  const subcopy = journeyComplete
-    ? "Semua card selesai—journey kamu lengkap!"
-    : active && remaining <= 2
+  const completedCycles = Math.max(0, membership.completed_cycles ?? 0);
+  const subcopy = active && remaining <= 2
       ? `Tinggal ${remaining} stamp lagi menuju reward berikutnya.`
       : "Yuk lanjut kumpulkan stamp-mu.";
 
@@ -97,6 +95,12 @@ export default async function LoyaltyPage() {
             <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Okaeri, {name}!</h1>
             <p className="mt-2 max-w-md text-sm leading-6 text-white/75">{subcopy}</p>
             {program.description ? <p className="mt-1 max-w-md text-xs leading-5 text-white/55">{program.description}</p> : null}
+            {completedCycles > 0 ? (
+              <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-xs font-extrabold text-ink shadow-[0_3px_0_#d6aa00]">
+                <Trophy className="size-4" aria-hidden="true" />
+                {completedCycles} putaran loyalty selesai
+              </span>
+            ) : null}
           </div>
           <Link
             href="/loyalty/rewards"

@@ -78,7 +78,7 @@ export default async function HistoryPage() {
       occurredAt: reward.available_at,
       title: "Reward — Available",
       detail: "Reward siap digunakan bersama tim Kira Kira Michi.",
-      meta: `Card ${number}`,
+      meta: `Putaran ${reward.cycle_no} · Card ${number}`,
       kind: "reward",
     });
     if (reward.status === "redeemed" && reward.redeemed_at) {
@@ -87,7 +87,7 @@ export default async function HistoryPage() {
         occurredAt: reward.redeemed_at,
         title: "Reward — Redeemed",
         detail: reward.note,
-        meta: `Card ${number}`,
+        meta: `Putaran ${reward.cycle_no} · Card ${number}`,
         kind: "redeemed",
       });
     }

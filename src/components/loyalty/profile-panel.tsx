@@ -2,14 +2,13 @@
 
 import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, KeyRound, LogOut, Mail, Pencil, Phone, Save, ShieldCheck, UserRound, X } from "lucide-react";
+import { CalendarDays, Eye, EyeOff, KeyRound, LogOut, Mail, Pencil, Phone, Save, ShieldCheck, UserRound, X } from "lucide-react";
 import {
   changePasswordAction,
   logoutAction,
   updateProfileAction,
 } from "@/app/loyalty/actions";
 import { formatDate } from "@/components/loyalty/format";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { StatusMessage } from "@/components/ui/status-message";
@@ -25,12 +24,14 @@ export function ProfilePanel({
   fullName,
   email,
   whatsapp,
+  dateOfBirth,
   marketingConsent,
   memberSince,
 }: {
   fullName: string;
   email: string;
   whatsapp: string | null;
+  dateOfBirth: string | null;
   marketingConsent: boolean;
   memberSince: string | null;
 }) {
@@ -104,9 +105,6 @@ export function ProfilePanel({
             <div className="min-w-0">
               <h2 className="truncate text-xl font-extrabold">{fullName}</h2>
               <p className="mt-1 truncate text-sm text-white/70">{email}</p>
-              <Badge tone={marketingConsent ? "success" : "neutral"} className="mt-2">
-                Marketing {marketingConsent ? "aktif" : "nonaktif"}
-              </Badge>
             </div>
           </div>
         </div>
@@ -128,6 +126,15 @@ export function ProfilePanel({
             <div className="min-w-0">
               <dt className="text-xs font-bold text-ink-muted">Email akun</dt>
               <dd className="mt-1 break-all text-sm font-bold text-ink">{email}</dd>
+            </div>
+          </div>
+          <div className="flex items-start gap-3 py-4">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand">
+              <CalendarDays className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <dt className="text-xs font-bold text-ink-muted">Tanggal lahir</dt>
+              <dd className="mt-1 text-sm font-bold text-ink">{dateOfBirth ? formatDate(dateOfBirth) : "Belum tersedia"}</dd>
             </div>
           </div>
           <div className="flex items-start gap-3 py-4">

@@ -19,6 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
 
 function ContactLink({ type, value }: { type: "email" | "whatsapp"; value: string | null | undefined }) {
   const Icon = type === "email" ? Mail : SiWhatsapp;
@@ -56,16 +57,18 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
     .sort((left, right) => right.sequence_no - left.sequence_no)[0];
   const reversibleCompletionId = (() => {
     if (!latestCompletedCard) return null;
-    const reward = rewards.find((item) => item.member_card_id === latestCompletedCard.id);
+    const reward = rewards.find(
+      (item) => item.member_card_id === latestCompletedCard.id && item.cycle_no === (program?.completed_cycles ?? 0) + 1,
+    );
     if (!reward || reward.status !== "available") return null;
     if (requests.some((request) => request.status === "pending")) return null;
-    if (latestCompletedCard.sequence_no < 6) {
+    if (latestCompletedCard.sequence_no < TOTAL_CARDS) {
       const nextCard = currentCards.find(
         (card) => card.sequence_no === latestCompletedCard.sequence_no + 1,
       );
       if (!nextCard || nextCard.status !== "active" || nextCard.stamps_count !== 0) return null;
       if (program?.status !== "active") return null;
-    } else if (program?.status !== "completed") {
+    } else {
       return null;
     }
     const laterCardIds = new Set(
@@ -109,15 +112,17 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-extrabold text-ink">Informasi customer</h2>
-                <Badge tone={program?.status === "completed" ? "success" : program ? "brand" : "neutral"}>
-                  {program?.status === "completed" ? "Program selesai" : program ? "Member aktif" : "Belum bergabung"}
+                <Badge tone={program ? "brand" : "neutral"}>
+                  {program ? "Member aktif" : "Belum bergabung"}
                 </Badge>
+                {program?.completed_cycles ? <Badge tone="success">{program.completed_cycles} putaran selesai</Badge> : null}
               </div>
               <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
                 <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">Email</dt><dd className="mt-1.5"><ContactLink type="email" value={profile.email} /></dd></div>
                 <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">WhatsApp</dt><dd className="mt-1.5"><ContactLink type="whatsapp" value={profile.whatsapp} /></dd></div>
                 <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">Bergabung</dt><dd className="mt-1.5 inline-flex items-center gap-2 font-medium"><CalendarDays className="size-4 text-ink-muted" />{formatAdminDate(program?.joined_at ?? profile.created_at)}</dd></div>
-                <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">Marketing consent</dt><dd className="mt-1.5 inline-flex items-center gap-2 font-medium"><ShieldCheck className="size-4 text-ink-muted" />{profile.marketing_consent ? "Ya" : "Tidak"}</dd></div>
+                <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">Tanggal lahir</dt><dd className="mt-1.5 inline-flex items-center gap-2 font-medium"><CalendarDays className="size-4 text-ink-muted" />{profile.date_of_birth ? formatAdminDate(profile.date_of_birth, false) : "Belum tersedia"}</dd></div>
+                <div><dt className="text-xs font-bold uppercase tracking-wide text-ink-muted">Syarat & ketentuan</dt><dd className="mt-1.5 inline-flex items-center gap-2 font-medium"><ShieldCheck className="size-4 text-ink-muted" />{profile.terms_accepted_at ? `Disetujui · ${profile.terms_version ?? "versi aktif"}` : "Akun lama"}</dd></div>
               </dl>
             </div>
           </div>
@@ -127,10 +132,10 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-extrabold uppercase tracking-wide text-ink-muted">Kartu saat ini</p>
-              <h2 className="mt-1 font-extrabold text-ink">{activeCard ? `Card ${activeCard.sequence_no} · ${activeCard.definition?.title ?? "Loyalty Card"}` : program?.status === "completed" ? "Journey selesai" : "Belum ada kartu aktif"}</h2>
+              <h2 className="mt-1 font-extrabold text-ink">{activeCard ? `Card ${activeCard.sequence_no} · ${activeCard.definition?.title ?? "Loyalty Card"}` : "Belum ada kartu aktif"}</h2>
               <p className="mt-2 text-sm text-ink-muted">
                 {activeCard
-                  ? `${activeCard.stamps_count}/8 stamp terkumpul`
+                  ? `${activeCard.stamps_count}/${STAMPS_PER_CARD} stamp terkumpul`
                   : reversibleCompletionId
                     ? "Completion terakhir masih dapat dikoreksi dengan alasan audit."
                     : "Tidak ada penyesuaian yang dapat dilakukan."}
@@ -148,7 +153,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
       <Card className="p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div><h2 className="font-extrabold text-ink">Loyalty journey</h2><p className="mt-1 text-xs text-ink-muted">{program?.programName ?? "Customer belum bergabung ke program."}</p></div>
-          {program ? <Badge tone={program.status === "completed" ? "success" : "brand"}>{program.status === "completed" ? "Selesai" : "Berjalan"}</Badge> : null}
+          {program ? <Badge tone="brand">Putaran {(program.completed_cycles ?? 0) + 1}</Badge> : null}
         </div>
         {!cards.length ? (
           <EmptyAdminState title="Belum ada loyalty journey" description="Kartu akan dibuat ketika customer bergabung melalui link atau QR." />
@@ -157,17 +162,17 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
             {cards.map((card) => (
               <article key={card.id} className={cn("rounded-2xl border p-4", card.status === "active" ? "border-brand/35 bg-brand-soft/35" : "border-line bg-surface-muted/40")}>
                 <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-extrabold uppercase tracking-wide text-ink-muted">Card {card.sequence_no} dari 6</p><h3 className="mt-1 font-extrabold text-ink">{card.definition?.title ?? `Loyalty Card ${card.sequence_no}`}</h3></div>
+                  <div><p className="text-xs font-extrabold uppercase tracking-wide text-ink-muted">Card {card.sequence_no} dari {TOTAL_CARDS}</p><h3 className="mt-1 font-extrabold text-ink">{card.definition?.title ?? `Loyalty Card ${card.sequence_no}`}</h3></div>
                   <CardStatusBadge status={card.status} />
                 </div>
-                <div className="mt-4 grid grid-cols-8 gap-1.5" role="img" aria-label={`${card.stamps_count} dari 8 stamp terkumpul`}>
-                  {Array.from({ length: 8 }, (_, index) => (
+                <div className="mt-4 grid grid-cols-6 gap-1.5" role="img" aria-label={`${card.stamps_count} dari ${STAMPS_PER_CARD} stamp terkumpul`}>
+                  {Array.from({ length: STAMPS_PER_CARD }, (_, index) => (
                     <span key={index} className={cn("grid aspect-square place-items-center rounded-full border", index < card.stamps_count ? "border-brand/20 bg-brand-soft" : "border-line bg-white")}>
                       {index < card.stamps_count ? <Image src="/kira-kira-michi-stamp-red.png" alt="" width={32} height={32} className="size-full object-contain" /> : null}
                     </span>
                   ))}
                 </div>
-                <p className="mt-3 text-xs font-bold text-ink-muted">{card.stamps_count}/8 stamp{card.completed_at ? ` · selesai ${formatAdminDate(card.completed_at, false)}` : ""}</p>
+                <p className="mt-3 text-xs font-bold text-ink-muted">{card.stamps_count}/{STAMPS_PER_CARD} stamp{card.completed_at ? ` · selesai ${formatAdminDate(card.completed_at, false)}` : ""}</p>
               </article>
             ))}
           </div>
@@ -186,7 +191,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
             {rewards.map((reward) => (
               <article key={reward.id} className="rounded-2xl border border-line bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div><p className="text-xs font-bold text-ink-muted">Reward Card {reward.cardSequence}</p><h3 className="mt-1 font-extrabold text-ink">{reward.rewardTitle}</h3></div>
+                  <div><p className="text-xs font-bold text-ink-muted">Putaran {reward.cycle_no} · Reward Card {reward.cardSequence}</p><h3 className="mt-1 font-extrabold text-ink">{reward.rewardTitle}</h3></div>
                   <RewardStatusBadge status={isRewardExpired(reward.expires_at) && reward.status === "available" ? "expired" : reward.status} />
                 </div>
                 <p className="mt-3 text-xs leading-5 text-ink-muted">

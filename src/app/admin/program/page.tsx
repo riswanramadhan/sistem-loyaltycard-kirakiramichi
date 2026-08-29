@@ -4,6 +4,7 @@ import { ProgramDefinitionForm, ProgramSettingsForm } from "@/components/admin/a
 import { AdminPageHeader, EmptyAdminState, formatAdminDate } from "@/components/admin/admin-ui";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
 
 export default async function AdminProgramPage() {
   const result = await getAdminProgram();
@@ -13,7 +14,7 @@ export default async function AdminProgramPage() {
       <AdminPageHeader
         eyebrow="Program settings"
         title="Kartu & reward"
-        description="Atur copy dan benefit untuk keenam kartu. Jumlah kartu dan kebutuhan stamp tetap dikunci sesuai aturan MVP."
+        description="Atur copy dan benefit untuk ketujuh kartu. Jumlah kartu dan kebutuhan stamp tetap dikunci sesuai aturan loyalty."
       />
 
       {!result ? (
@@ -37,7 +38,7 @@ export default async function AdminProgramPage() {
             </div>
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-surface-muted px-3 py-2.5 text-xs leading-5 text-ink-muted">
               <LockKeyhole className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Total 6 kartu dan 8 stamp per kartu tidak dapat diubah dari admin UI agar progres seluruh member tetap konsisten.
+              Total {TOTAL_CARDS} kartu dan {STAMPS_PER_CARD} stamp per kartu tidak dapat diubah dari admin UI agar progres seluruh member tetap konsisten.
             </div>
             <ProgramSettingsForm
               program={{
@@ -51,8 +52,8 @@ export default async function AdminProgramPage() {
 
           <section aria-labelledby="definitions-title">
             <div className="mb-3 flex items-end justify-between gap-3">
-              <div><h2 id="definitions-title" className="font-extrabold text-ink">Enam definisi kartu</h2><p className="mt-1 text-xs text-ink-muted">Buka satu kartu untuk mengedit detailnya.</p></div>
-              <span className="text-xs font-bold text-ink-muted">{result.definitions.length}/6 tersedia</span>
+              <div><h2 id="definitions-title" className="font-extrabold text-ink">Tujuh definisi kartu</h2><p className="mt-1 text-xs text-ink-muted">Buka satu kartu untuk mengedit detailnya.</p></div>
+              <span className="text-xs font-bold text-ink-muted">{result.definitions.length}/{TOTAL_CARDS} tersedia</span>
             </div>
             <div className="grid gap-3">
               {result.definitions.map((definition) => (
@@ -71,9 +72,9 @@ export default async function AdminProgramPage() {
                 />
               ))}
             </div>
-            {result.definitions.length !== 6 ? (
+            {result.definitions.length !== TOTAL_CARDS ? (
               <p role="alert" className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-3 py-2.5 text-sm text-warning">
-                Data program belum lengkap. Migrasi seharusnya menyediakan tepat 6 definisi kartu.
+                Data program belum lengkap. Migrasi seharusnya menyediakan tepat {TOTAL_CARDS} definisi kartu.
               </p>
             ) : null}
           </section>

@@ -13,7 +13,7 @@ Jalankan pada project Supabase staging yang sudah menerima seluruh migration. Gu
 - [ ] Ulangi approve +2; popup customer menyebut +2 hanya sekali dan dua slot stamp langsung berubah tanpa reload/manual refresh.
 - [ ] Admin partial approve +2 menjadi +1; progress hanya bertambah satu.
 - [ ] Admin reject; progress customer tidak berubah dan note tampil di history.
-- [ ] Approval stamp ke-8 menyelesaikan card, membuka reward, dan mengaktifkan card berikutnya.
+- [ ] Approval stamp ke-6 menyelesaikan card, membuka reward, dan mengaktifkan card berikutnya.
 - [ ] Card berikutnya aktif walaupun reward sebelumnya belum redeemed.
 - [ ] Rewards tersedia/locked/kedaluwarsa/redeemed berada di section yang benar; reward kedaluwarsa tidak dapat ditebus.
 - [ ] Profile hanya dapat mengubah nama, WhatsApp, dan marketing preference.
@@ -27,10 +27,10 @@ Jalankan pada project Supabase staging yang sudah menerima seluruh migration. Gu
 - [ ] Filter Pending/Approved/Rejected dan search customer bekerja.
 - [ ] Approve, partial approve, reject menampilkan popup sukses 4 detik, loading/feedback, dan tidak bisa disubmit ganda.
 - [ ] Dua admin mencoba approve request yang sama; hanya satu transaksi berhasil.
-- [ ] Grant/revoke membutuhkan reason, membuat event immutable, dan tidak bisa melewati 0/8.
+- [ ] Grant/revoke membutuhkan reason, membuat event immutable, dan tidak bisa melewati 0/6.
 - [ ] Revoke pada completion terakhir membuka ulang kartu secara atomik hanya bila reward belum ditebus dan kartu berikutnya belum memiliki aktivitas.
 - [ ] Reward hanya dapat redeemed sekali dan menyimpan admin/timestamp/note.
-- [ ] Program editor mengubah nama/deskripsi/status program dan copy/reward, tetapi tidak menawarkan perubahan 6 cards/8 stamps atau menonaktifkan satu definisi kartu.
+- [ ] Program editor mengubah nama/deskripsi/status program dan copy/reward, tetapi tidak menawarkan perubahan 7 kartu/6 stamp atau menonaktifkan satu definisi kartu.
 - [ ] Saat program dijeda, join/request/journey customer berhenti dengan aman; aktifkan kembali dan pastikan progres lama tetap utuh.
 - [ ] QR mengarah tepat ke `/join`, dapat disalin, diunduh, dan dicetak.
 - [ ] Audit menampilkan event beserta actor/reason.

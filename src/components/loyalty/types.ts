@@ -21,6 +21,7 @@ export type RewardView = {
   id: string | null;
   memberCardId: string;
   sequenceNo: number;
+  cycleNo: number;
   title: string | null;
   description: string | null;
   terms: string | null;

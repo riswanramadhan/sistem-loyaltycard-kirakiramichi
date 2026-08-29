@@ -10,6 +10,7 @@ export default defineConfig([
     ".tmp/**",
     "coverage/**",
     "supabase/.validation-temp/**",
+    "supabase/functions/**",
     "next-env.d.ts",
   ]),
 ]);

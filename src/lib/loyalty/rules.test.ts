@@ -9,9 +9,9 @@ import {
 } from "./rules";
 
 describe("loyalty membership initialization", () => {
-  it("creates exactly six cards with only Card 1 active", () => {
+  it("creates exactly seven cards with only Card 1 active", () => {
     const cards = createInitialJourney();
-    expect(cards).toHaveLength(6);
+    expect(cards).toHaveLength(7);
     expect(cards[0]).toEqual({ sequenceNo: 1, status: "active", stampsCount: 0 });
     expect(cards.slice(1).every((card) => card.status === "locked")).toBe(true);
   });
@@ -22,11 +22,11 @@ describe("loyalty membership initialization", () => {
 });
 
 describe("stamp requests", () => {
-  it.each([1, 2])("allows a +%i request on an active card", (requestedCount) => {
+  it.each([1, 2, 3, 4, 5, 6])("allows a +%i request on an active card", (requestedCount) => {
     expect(
       assertValidStampRequest({
         cardStatus: "active",
-        stampsCount: 4,
+        stampsCount: 0,
         requestedCount,
         hasPendingRequest: false,
       }),
@@ -38,7 +38,7 @@ describe("stamp requests", () => {
       assertValidStampRequest({
         cardStatus: "active",
         stampsCount: 0,
-        requestedCount: 3,
+        requestedCount: 7,
         hasPendingRequest: false,
       }),
     ).toThrowError(expect.objectContaining({ code: "INVALID_COUNT" }));
@@ -48,7 +48,7 @@ describe("stamp requests", () => {
     expect(() =>
       assertValidStampRequest({
         cardStatus: "active",
-        stampsCount: 7,
+        stampsCount: 5,
         requestedCount: 2,
         hasPendingRequest: false,
       }),
@@ -143,17 +143,17 @@ describe("admin review", () => {
 });
 
 describe("progression", () => {
-  it("completes a card exactly at stamp 8 and unlocks the next card", () => {
+  it("completes a card exactly at stamp 6 and unlocks the next card", () => {
     const result = reviewRequest({
       requestStatus: "pending",
       requestedCount: 1,
       approvedCount: 1,
       cardStatus: "active",
-      stampsCount: 7,
+      stampsCount: 5,
       sequenceNo: 1,
     });
     expect(result).toMatchObject({
-      nextStampsCount: 8,
+      nextStampsCount: 6,
       cardStatus: "completed",
       rewardAvailable: true,
       unlockNextCard: true,
@@ -161,27 +161,28 @@ describe("progression", () => {
     });
   });
 
-  it("completes the full journey after Card 6", () => {
+  it("completes a cycle after Card 7 and starts again from Card 1", () => {
     const result = reviewRequest({
       requestStatus: "pending",
       requestedCount: 1,
       approvedCount: 1,
       cardStatus: "active",
-      stampsCount: 7,
-      sequenceNo: 6,
+      stampsCount: 5,
+      sequenceNo: 7,
     });
     expect(result.unlockNextCard).toBe(false);
-    expect(result.programCompleted).toBe(true);
+    expect(result.cycleCompleted).toBe(true);
+    expect(result.programCompleted).toBe(false);
   });
 
-  it("never permits progress over eight", () => {
+  it("never permits progress over six", () => {
     expect(() =>
       reviewRequest({
         requestStatus: "pending",
         requestedCount: 2,
         approvedCount: 2,
         cardStatus: "active",
-        stampsCount: 7,
+        stampsCount: 5,
         sequenceNo: 1,
       }),
     ).toThrowError(expect.objectContaining({ code: "CAPACITY_EXCEEDED" }));
@@ -195,7 +196,7 @@ describe("controlled adjustments", () => {
   });
 
   it("blocks invalid or out-of-bounds adjustments", () => {
-    expect(() => applyAdjustment(8, 1)).toThrow(LoyaltyRuleError);
+    expect(() => applyAdjustment(6, 1)).toThrow(LoyaltyRuleError);
     expect(() => applyAdjustment(0, -1)).toThrow(LoyaltyRuleError);
     expect(() => applyAdjustment(4, 0)).toThrow(LoyaltyRuleError);
   });

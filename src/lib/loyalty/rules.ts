@@ -1,6 +1,6 @@
-export const TOTAL_CARDS = 6;
-export const STAMPS_PER_CARD = 8;
-export const REQUEST_COUNTS = [1, 2] as const;
+export const TOTAL_CARDS = 7;
+export const STAMPS_PER_CARD = 6;
+export const REQUEST_COUNTS = [1, 2, 3, 4, 5, 6] as const;
 
 export type CardStatus = "locked" | "active" | "completed";
 export type RequestStatus = "pending" | "approved" | "rejected";
@@ -33,8 +33,8 @@ export function assertValidStampRequest(input: {
   if (input.cardStatus !== "active") {
     throw new LoyaltyRuleError("CARD_NOT_ACTIVE", "Card ini belum aktif.");
   }
-  if (!REQUEST_COUNTS.includes(input.requestedCount as 1 | 2)) {
-    throw new LoyaltyRuleError("INVALID_COUNT", "Jumlah request harus 1 atau 2 stamp.");
+  if (!REQUEST_COUNTS.includes(input.requestedCount as (typeof REQUEST_COUNTS)[number])) {
+    throw new LoyaltyRuleError("INVALID_COUNT", "Jumlah request harus 1 sampai 6 stamp.");
   }
   if (input.hasPendingRequest) {
     throw new LoyaltyRuleError("PENDING_EXISTS", "Masih ada request yang sedang diperiksa.");
@@ -77,7 +77,8 @@ export function reviewRequest(input: {
     cardStatus: (completed ? "completed" : "active") as CardStatus,
     rewardAvailable: completed,
     unlockNextCard: completed && input.sequenceNo < TOTAL_CARDS,
-    programCompleted: completed && input.sequenceNo === TOTAL_CARDS,
+    cycleCompleted: completed && input.sequenceNo === TOTAL_CARDS,
+    programCompleted: false,
   };
 }
 

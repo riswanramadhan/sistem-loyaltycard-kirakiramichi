@@ -43,6 +43,7 @@ export function RegisterForm() {
       <Field label="Nama lengkap" name="fullName" autoComplete="name" required defaultValue={state.fields?.fullName} placeholder="Nama kamu" />
       <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.fields?.email} placeholder="nama@email.com" />
       <Field label="WhatsApp" name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" required defaultValue={state.fields?.whatsapp} placeholder="08xxxxxxxxxx" hint="Dipakai admin untuk mencocokkan transaksi." />
+      <Field label="Tanggal lahir" name="dateOfBirth" type="date" autoComplete="bday" required defaultValue={state.fields?.dateOfBirth} hint="Wajib diisi untuk benefit ulang tahun, termasuk program merchandise gratis yang berlaku." />
       <PasswordField
         label="Password"
         name="password"
@@ -100,8 +101,8 @@ export function RegisterForm() {
         hint={confirmation && confirmation === password ? "Password sudah sama." : "Ketik ulang password untuk memastikan tidak ada salah tulis."}
       />
       <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface-muted p-3 text-xs leading-5 text-ink-muted">
-        <input name="marketingConsent" type="checkbox" className="mt-1 size-4 rounded border-line accent-brand" />
-        <span>Saya bersedia menerima informasi promo dan program Kira Kira Michi. <strong className="text-ink">Opsional.</strong></span>
+        <input name="termsAccepted" type="checkbox" required className="mt-1 size-4 rounded border-line accent-brand" />
+        <span>Saya sudah membaca dan menyetujui <Link href="/terms" target="_blank" className="font-extrabold text-brand hover:underline">syarat dan ketentuan Kira Kira Michi</Link>. <strong className="text-ink">Wajib.</strong></span>
       </label>
       <Button type="submit" size="lg" disabled={pending} className="w-full">
         {pending ? <LoaderCircle className="size-5 animate-spin" aria-hidden="true" /> : <>Buat akun <ArrowRight className="size-5" aria-hidden="true" /></>}

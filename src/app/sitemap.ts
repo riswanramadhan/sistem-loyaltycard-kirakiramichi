@@ -3,7 +3,7 @@ import { getSiteUrl } from "@/lib/env";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = getSiteUrl();
-  const lastModified = new Date("2026-08-26T00:00:00+08:00");
+  const lastModified = new Date("2026-08-30T00:00:00+08:00");
   return [
     {
       url: origin,
@@ -18,6 +18,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.9,
       alternates: { languages: { "id-ID": `${origin}/join` } },
+    },
+    {
+      url: `${origin}/terms`,
+      lastModified,
+      changeFrequency: "yearly",
+      priority: 0.5,
+      alternates: { languages: { "id-ID": `${origin}/terms` } },
     },
   ];
 }

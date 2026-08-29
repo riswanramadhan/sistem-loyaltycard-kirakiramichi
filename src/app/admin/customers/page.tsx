@@ -4,6 +4,7 @@ import { getAdminCustomers } from "@/app/admin/_lib/admin-data";
 import { AdminPageHeader, EmptyAdminState, formatAdminDate } from "@/components/admin/admin-ui";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
 function ProgramBadge({ status }: { status: string }) {
   if (status === "completed") return <Badge tone="success">Program selesai</Badge>;
@@ -80,7 +81,7 @@ export default async function AdminCustomersPage({
                     <ArrowRight className="mt-1 size-4 shrink-0 text-ink-faint" aria-hidden="true" />
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-3 text-sm">
-                    <div><p className="text-xs text-ink-muted">Kartu</p><p className="mt-1 font-bold">{customer.activeCardSequence ? `Card ${customer.activeCardSequence} · ${customer.activeStamps}/8` : customer.programStatus === "completed" ? "Journey selesai" : "Belum bergabung"}</p></div>
+                    <div><p className="text-xs text-ink-muted">Kartu</p><p className="mt-1 font-bold">{customer.activeCardSequence ? `Card ${customer.activeCardSequence} · ${customer.activeStamps}/${STAMPS_PER_CARD}` : "Belum bergabung"}</p></div>
                     <div><p className="text-xs text-ink-muted">Reward tersedia</p><p className="mt-1 inline-flex items-center gap-1 font-bold"><Gift className="size-3.5 text-accent-strong" />{customer.availableRewards}</p></div>
                   </div>
                 </Link>
@@ -110,8 +111,8 @@ export default async function AdminCustomersPage({
                       <td className="px-4 py-4"><ProgramBadge status={customer.programStatus} /></td>
                       <td className="px-4 py-4">
                         {customer.activeCardSequence ? (
-                          <><p className="font-bold">Card {customer.activeCardSequence}</p><p className="mt-1 text-xs text-ink-muted">{customer.activeStamps}/8 stamp</p></>
-                        ) : <span className="text-ink-muted">{customer.programStatus === "completed" ? "Journey selesai" : "–"}</span>}
+                          <><p className="font-bold">Card {customer.activeCardSequence}</p><p className="mt-1 text-xs text-ink-muted">{customer.activeStamps}/{STAMPS_PER_CARD} stamp</p></>
+                        ) : <span className="text-ink-muted">–</span>}
                       </td>
                       <td className="px-4 py-4"><span className="inline-flex items-center gap-1.5 font-bold"><Gift className="size-4 text-accent-strong" aria-hidden="true" />{customer.availableRewards} tersedia</span></td>
                       <td className="whitespace-nowrap px-4 py-4 text-xs text-ink-muted">{formatAdminDate(customer.lastActivityAt)}</td>

@@ -71,7 +71,7 @@ function RewardTicket({ reward }: { reward: RewardView }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-brand">
-              Reward Card {reward.sequenceNo}
+              Putaran {reward.cycleNo} · Reward Card {reward.sequenceNo}
             </p>
             <Badge tone={reward.status === "available" ? "warning" : redeemed ? "success" : expired ? "danger" : "neutral"}>
               {reward.status === "available" ? "Tersedia" : redeemed ? "Sudah dipakai" : expired ? "Kedaluwarsa" : "Terkunci"}
@@ -149,7 +149,7 @@ export function RewardSection({
       {rewards.length > 0 ? (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {rewards.map((reward) => (
-            <RewardTicket key={`${reward.memberCardId}-${reward.status}`} reward={reward} />
+            <RewardTicket key={`${reward.memberCardId}-${reward.cycleNo}-${reward.status}`} reward={reward} />
           ))}
         </div>
       ) : (

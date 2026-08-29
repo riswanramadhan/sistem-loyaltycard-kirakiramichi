@@ -61,7 +61,7 @@ export function AdminRealtime({ adminId }: { adminId: string }) {
     channel
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "stamp_requests" }, (payload) => {
         const request = payload.new as { requested_count?: number };
-        const quantity = request.requested_count === 2 ? 2 : 1;
+        const quantity = Math.max(1, Math.min(6, request.requested_count ?? 1));
         announce({
           kind: "request",
           quantity,

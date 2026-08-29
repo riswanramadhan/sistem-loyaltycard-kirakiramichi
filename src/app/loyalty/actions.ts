@@ -53,8 +53,8 @@ export async function requestStampAction(input: {
   if (!memberCardId || !/^[0-9a-f-]{36}$/i.test(memberCardId)) {
     return { ok: false, message: "Card loyalty tidak valid. Muat ulang halaman ini." };
   }
-  if (requestedCount !== 1 && requestedCount !== 2) {
-    return { ok: false, message: "Pilih 1 atau 2 stamp." };
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > 6) {
+    return { ok: false, message: "Pilih jumlah 1 sampai 6 stamp." };
   }
   if (customerNote && customerNote.length > 280) {
     return { ok: false, message: "Catatan maksimal 280 karakter." };

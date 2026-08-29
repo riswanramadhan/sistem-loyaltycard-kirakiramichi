@@ -23,6 +23,7 @@ export default async function ProfilePage() {
         fullName={profile.full_name}
         email={profile.email ?? "Email tidak tersedia"}
         whatsapp={profile.whatsapp}
+        dateOfBirth={profile.date_of_birth}
         marketingConsent={profile.marketing_consent}
         memberSince={membership?.joined_at ?? profile.created_at}
       />

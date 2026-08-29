@@ -9,6 +9,7 @@ import { RequestStampSheet } from "@/components/loyalty/request-stamp-sheet";
 import { StampGrid } from "@/components/loyalty/stamp-grid";
 import type { LoyaltyCardView } from "@/components/loyalty/types";
 import { cn } from "@/lib/utils";
+import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
 
 const stateCopy = {
   active: { label: "Aktif", tone: "brand" as const },
@@ -25,7 +26,7 @@ function JourneyIndicator({
 }) {
   return (
     <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <ol className="flex min-w-max items-center" aria-label="Perjalanan enam loyalty card">
+      <ol className="flex min-w-max items-center" aria-label="Perjalanan tujuh loyalty card">
         {cards.map((card, index) => (
           <li key={card.id} className="flex items-center">
             {index > 0 ? (
@@ -91,7 +92,7 @@ function LoyaltyCard({
   cardRef: (element: HTMLElement | null) => void;
   onRequest: (card: LoyaltyCardView) => void;
 }) {
-  const remaining = Math.max(0, 8 - card.stampsCount);
+  const remaining = Math.max(0, STAMPS_PER_CARD - card.stampsCount);
   const isActive = card.status === "active";
   const isLocked = card.status === "locked";
   const copy = stateCopy[card.status];
@@ -123,7 +124,7 @@ function LoyaltyCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">
-              Card {card.sequenceNo} of 6
+              Card {card.sequenceNo} of {TOTAL_CARDS}
             </p>
             <h2 id={`card-${card.id}-title`} className="mt-1.5 text-xl font-extrabold text-ink">
               {card.title ?? `Loyalty Card ${card.sequenceNo}`}
@@ -141,7 +142,7 @@ function LoyaltyCard({
         <div className="mt-5 flex items-end justify-between gap-3">
           <div>
             <p className="text-3xl font-black text-ink">
-              {card.stampsCount}<span className="text-lg text-ink-faint">/8</span>
+              {card.stampsCount}<span className="text-lg text-ink-faint">/{STAMPS_PER_CARD}</span>
             </p>
             <p className="text-xs font-semibold text-ink-muted">stamp sudah masuk</p>
           </div>
@@ -184,7 +185,7 @@ function LoyaltyCard({
             </Link>
           ) : card.hasPendingRequest ? (
             <div className="rounded-xl border border-warning/20 bg-warning-soft px-3 py-2.5 text-center text-xs font-semibold leading-5 text-warning">
-              Request kamu sedang dicek. Progress tetap {card.stampsCount}/8 sampai disetujui.
+              Request kamu sedang dicek. Progress tetap {card.stampsCount}/{STAMPS_PER_CARD} sampai disetujui.
             </div>
           ) : remaining > 0 ? (
             <Button type="button" className="w-full" onClick={() => onRequest(card)}>
@@ -231,7 +232,7 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
   }, [notice]);
 
   const openRequest = (card: LoyaltyCardView) => {
-    if (card.status !== "active" || card.hasPendingRequest || card.stampsCount >= 8) return;
+    if (card.status !== "active" || card.hasPendingRequest || card.stampsCount >= STAMPS_PER_CARD) return;
     setNotice(null);
     setSheetCardId(card.id);
   };
@@ -244,7 +245,7 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
         <div>
           <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-brand">Loyalty journey</p>
           <h2 id="journey-heading" className="mt-1 text-xl font-extrabold text-ink">
-            Enam card, satu perjalanan seru
+            Tujuh card, satu putaran seru
           </h2>
         </div>
         <JourneyIndicator cards={cards} onSelect={scrollToCard} />
@@ -286,7 +287,7 @@ export function LoyaltyJourney({ cards }: { cards: LoyaltyCardView[] }) {
           open
           memberCardId={activeCard.id}
           cardNumber={activeCard.sequenceNo}
-          remaining={Math.max(0, 8 - activeCard.stampsCount)}
+          remaining={Math.max(0, STAMPS_PER_CARD - activeCard.stampsCount)}
           hasPendingRequest={activeCard.hasPendingRequest}
           onClose={() => setSheetCardId(null)}
           onSuccess={setNotice}

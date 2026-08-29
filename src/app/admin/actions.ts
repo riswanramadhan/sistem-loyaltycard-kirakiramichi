@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { getAuthRedirectOrigin } from "@/lib/request-url";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type AdminActionState = {
@@ -55,7 +53,7 @@ function friendlyMutationError(context: string, error: { message?: string; code?
     return "Completion tidak dapat dibuka ulang karena kartu berikutnya sudah memiliki progres atau riwayat aktivitas.";
   }
   if (message.includes("adjustment_exceeds_stamp_bounds")) {
-    return "Penyesuaian akan membuat jumlah stamp di luar batas 0–8.";
+    return "Penyesuaian akan membuat jumlah stamp di luar batas 0–6.";
   }
   if (message.includes("already") || message.includes("sudah")) {
     return "Aksi ini sudah diproses sebelumnya. Data terbaru sudah dimuat.";
@@ -109,60 +107,28 @@ export async function createAdminAccountAction(
 
   if (!parsed.success) return failure(parsed.error.issues[0]?.message ?? "Data admin belum valid.");
 
-  let adminClient;
-  try {
-    adminClient = createAdminClient();
-  } catch {
-    return failure("Service akun admin belum dikonfigurasi di Vercel.");
-  }
-
-  const { data, error } = await adminClient.auth.admin.createUser({
-    email: parsed.data.email,
-    email_confirm: true,
-    user_metadata: { full_name: parsed.data.fullName },
-  });
-
-  if (error || !data.user) {
-    const message = error?.message.toLowerCase() ?? "";
-    return failure(
-      message.includes("already") || message.includes("registered")
-        ? "Email ini sudah mempunyai akun. Gunakan email admin lain."
-        : "Akun admin belum berhasil dibuat. Coba lagi sebentar.",
-    );
-  }
-
   const supabase = await createClient();
-  const { error: promoteError } = await supabase.rpc("admin_promote_account", {
-    p_user_id: data.user.id,
+  const { error } = await supabase.functions.invoke("invite-admin", {
+    body: { fullName: parsed.data.fullName, email: parsed.data.email },
   });
 
-  if (promoteError) {
-    await adminClient.auth.admin.deleteUser(data.user.id);
-    return failure("Akun gagal diberi akses admin dan sudah dibatalkan dengan aman.");
-  }
-
-  let loginLinkSent = false;
-  try {
-    const origin = await getAuthRedirectOrigin();
-    const { error: loginLinkError } = await adminClient.auth.signInWithOtp({
-      email: parsed.data.email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${origin}/auth/confirm?next=/admin`,
-      },
-    });
-    if (loginLinkError) console.error("Initial admin OTP could not be sent", loginLinkError.message);
-    else loginLinkSent = true;
-  } catch {
-    console.error("Initial admin OTP origin is not configured safely.");
+  if (error) {
+    let code = "";
+    const context = "context" in error ? error.context : null;
+    if (context instanceof Response) {
+      const body = await context.clone().json().catch(() => null) as { error?: string } | null;
+      code = body?.error ?? "";
+    }
+    console.error("[admin:invite-admin]", { code, message: error.message });
+    if (code === "email_already_registered") return failure("Email ini sudah mempunyai akun. Gunakan email admin lain.");
+    if (code === "admin_access_required" || code === "authentication_required") {
+      return failure("Sesi admin tidak valid. Silakan masuk kembali lalu ulangi.");
+    }
+    return failure("Undangan admin belum berhasil dikirim. Periksa deployment fungsi Supabase lalu coba lagi.");
   }
 
   revalidatePath("/admin/admins");
-  return success(
-    loginLinkSent
-      ? `Admin ${parsed.data.email} siap. Kode OTP login pertama sudah dikirim.`
-      : `Admin ${parsed.data.email} siap. Minta OTP dari halaman login admin.`,
-  );
+  return success(`Undangan admin sudah dikirim ke ${parsed.data.email}.`);
 }
 
 export async function deleteCustomerAction(
@@ -214,7 +180,7 @@ export async function reviewStampRequestAction(
     .object({
       requestId: uuidSchema,
       action: z.enum(["approve", "reject"]),
-      approvedCount: z.coerce.number().int().min(0).max(2),
+      approvedCount: z.coerce.number().int().min(0).max(6),
       adminNote: optionalNoteSchema,
       customerId: z.union([uuidSchema, z.literal("")]).optional(),
     })
@@ -392,7 +358,7 @@ export async function updateCardDefinitionAction(
     p_reward_description: values.rewardDescription || null,
     p_reward_terms: values.rewardTerms || null,
     p_reward_expiry_days: values.rewardExpiryDays,
-    // The MVP journey is fixed at six operational cards. Definitions stay active;
+    // The journey is fixed at seven operational cards. Definitions stay active;
     // admins may pause the entire program through the program settings form.
     p_is_active: true,
   });

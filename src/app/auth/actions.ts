@@ -18,6 +18,10 @@ export type AuthState = {
 
 const emailSchema = z.string().trim().email("Masukkan alamat email yang valid.").max(254);
 const passwordSchema = z.string().min(8, "Password minimal 8 karakter.").max(72);
+const dateOfBirthSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Masukkan tanggal lahir yang valid.").refine((value) => {
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value && value >= "1900-01-01" && value <= new Date().toISOString().slice(0, 10);
+}, "Tanggal lahir tidak boleh berada di masa depan.");
 const PROGRAM_SLUG = "kira-kira-michi-loyalty";
 const otpPattern = new RegExp(`^\\d{${EMAIL_OTP_LENGTH}}$`);
 
@@ -91,15 +95,16 @@ export async function loginAction(_previous: AuthState, formData: FormData): Pro
 }
 
 export async function registerAction(_previous: AuthState, formData: FormData): Promise<AuthState> {
-  const fields = values(formData, ["fullName", "email", "whatsapp"]);
+  const fields = values(formData, ["fullName", "email", "whatsapp", "dateOfBirth"]);
   const parsed = z
     .object({
       fullName: z.string().trim().min(2, "Nama lengkap minimal 2 karakter.").max(100),
       email: emailSchema,
       whatsapp: whatsappSchema,
+      dateOfBirth: dateOfBirthSchema,
       password: passwordSchema,
       confirmPassword: z.string(),
-      marketingConsent: z.boolean(),
+      termsAccepted: z.boolean().refine((value) => value, "Kamu wajib menyetujui syarat dan ketentuan untuk mendaftar."),
     })
     .refine((data) => data.password === data.confirmPassword, {
       path: ["confirmPassword"],
@@ -109,9 +114,10 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
       fullName: formData.get("fullName"),
       email: formData.get("email"),
       whatsapp: formData.get("whatsapp"),
+      dateOfBirth: formData.get("dateOfBirth"),
       password: formData.get("password"),
       confirmPassword: formData.get("confirmPassword"),
-      marketingConsent: formData.get("marketingConsent") === "on",
+      termsAccepted: formData.get("termsAccepted") === "on",
     });
 
   if (!parsed.success) {
@@ -141,7 +147,10 @@ export async function registerAction(_previous: AuthState, formData: FormData): 
         data: {
           full_name: parsed.data.fullName,
           whatsapp: parsed.data.whatsapp,
-          marketing_consent: parsed.data.marketingConsent,
+          date_of_birth: parsed.data.dateOfBirth,
+          terms_accepted: true,
+          terms_version: "2026-08-30",
+          marketing_consent: false,
         },
       },
     });

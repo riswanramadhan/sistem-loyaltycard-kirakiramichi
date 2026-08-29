@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Clock3, LockKeyhole, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
 type StampState = "empty" | "pending" | "approved" | "latest" | "locked";
 
@@ -53,11 +54,11 @@ export function StampGrid({
   requestDisabled: boolean;
   onRequest: () => void;
 }) {
-  const approved = Math.max(0, Math.min(8, stampsCount));
-  const pending = Math.max(0, Math.min(8 - approved, pendingCount));
+  const approved = Math.max(0, Math.min(STAMPS_PER_CARD, stampsCount));
+  const pending = Math.max(0, Math.min(STAMPS_PER_CARD - approved, pendingCount));
   const latestStart = Math.max(0, approved - Math.max(0, latestApprovedCount));
 
-  const states: StampState[] = Array.from({ length: 8 }, (_, index) => {
+  const states: StampState[] = Array.from({ length: STAMPS_PER_CARD }, (_, index) => {
     if (isLocked) return "locked";
     if (index < approved) return index >= latestStart && latestApprovedCount > 0 ? "latest" : "approved";
     if (index < approved + pending) return "pending";
@@ -65,7 +66,7 @@ export function StampGrid({
   });
 
   return (
-    <ol className="grid grid-cols-4 gap-3" aria-label="Delapan slot stamp">
+    <ol className="grid grid-cols-3 gap-3" aria-label="Enam slot stamp">
       {states.map((state, index) => (
         <li key={index} className="grid min-w-0 place-items-center">
           {state === "empty" && isActive ? (

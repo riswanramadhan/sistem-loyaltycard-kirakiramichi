@@ -6,9 +6,9 @@ Aplikasi loyalty mobile-first untuk alur lengkap **scan -> join -> request stamp
 
 - Registrasi, login, verifikasi email dengan OTP delapan digit, reset password lewat link, dan sesi server-side.
 - Join via `/join` yang idempotent.
-- Enam loyalty card berurutan, delapan stamp per card.
-- Request +1/+2, status pending, approval parsial, rejection, dan realtime refresh.
-- Reward available/expired/redeemed dengan snapshot masa berlaku, history, profile, dan marketing preference.
+- Tujuh loyalty card berurutan, enam stamp per card, lalu berulang ke Card 1 dengan badge jumlah putaran.
+- Request +1 sampai +6, status pending, approval parsial, rejection, dan sinkronisasi realtime.
+- Reward tersedia/kedaluwarsa/ditebus per putaran, history, profile, tanggal lahir, dan persetujuan syarat.
 - Dashboard admin, request inbox, customer directory/detail, controlled adjustments termasuk pembalikan completion yang aman, program editor, audit ledger, dan QR join.
 - Login admin via OTP email, pembuatan admin dari workspace, dan penghapusan customer beserta seluruh data akun.
 - Toast approval/rejection 5 detik dengan progress bar, confetti setiap stamp, popup request 4 detik, kontak WA/IG, dan UI anti-auto-zoom di mobile.
@@ -30,10 +30,9 @@ Set environment variable berikut di Vercel Project Settings > Environment Variab
 NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 NEXT_PUBLIC_SITE_URL=https://kirakiraloyaltycard.web.id
-SUPABASE_SECRET_KEY=...
 ```
 
-Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. `SUPABASE_SECRET_KEY` (atau legacy `SUPABASE_SERVICE_ROLE_KEY`) wajib server-only: jangan pernah memakai prefix `NEXT_PUBLIC_` dan jangan menaruh nilainya di source code.
+Gunakan domain HTTPS asli untuk `NEXT_PUBLIC_SITE_URL`. Jangan memakai `localhost` di production. Aplikasi Next.js tidak membutuhkan service-role key; operasi undangan admin berjalan di Supabase Edge Function.
 
 Hubungkan Supabase CLI lalu push migration:
 
@@ -41,6 +40,8 @@ Hubungkan Supabase CLI lalu push migration:
 npx supabase login
 npx supabase link --project-ref YOUR_PROJECT_REF
 npx supabase db push
+npx supabase functions deploy invite-admin
+npx supabase secrets set SITE_URL=https://kirakiraloyaltycard.web.id
 ```
 
 ## Setup OTP Auth Supabase
@@ -80,7 +81,7 @@ Setelah migration terbaru berhasil dipush, siapkan admin awal yang diminta:
 
 ```text
 Email: kirakiramichi@dekatlokal.com
-Password awal: nilai `BOOTSTRAP_ADMIN_PASSWORD` (jangan commit nilainya)
+Password awal: tersimpan hanya di `.env.local` lokal dan tidak di-commit
 ```
 
 Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
@@ -89,13 +90,13 @@ Jalankan bootstrap satu kali terhadap project production. Contoh PowerShell:
 $env:NEXT_PUBLIC_SUPABASE_URL="https://PROJECT_REF.supabase.co"
 $env:SUPABASE_SECRET_KEY="SB_SECRET_KEY_PRODUCTION"
 $env:BOOTSTRAP_ADMIN_EMAIL="kirakiramichi@dekatlokal.com"
-$env:BOOTSTRAP_ADMIN_PASSWORD="PASSWORD_AWAL_YANG_DIMINTA"
 npm run admin:bootstrap
 Remove-Item Env:NEXT_PUBLIC_SUPABASE_URL
 Remove-Item Env:SUPABASE_SECRET_KEY
 Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
-Remove-Item Env:BOOTSTRAP_ADMIN_PASSWORD
 ```
+
+Perintah `npm run admin:bootstrap` otomatis membaca `.env.local`. Tambahkan satu kali `SUPABASE_SECRET_KEY` ke file lokal tersebut sebelum menjalankan bootstrap, lalu hapus key itu kembali setelah akun berhasil dibuat. Jangan pernah mengirim service key ke browser atau menyimpannya di Vercel.
 
 Skrip bersifat idempotent: akun utama dibuat/diperbarui dan dipromosikan menjadi admin. Pada eksekusi awal saja, semua akun admin lama dihentikan setelah kepemilikan audit dipindahkan ke admin utama. Penanda aman kemudian disimpan di metadata agar admin tambahan yang dibuat setelahnya tidak ikut terhapus saat bootstrap dijalankan ulang. Migrasi terbaru wajib dipush sebelum bootstrap. Password dapat diganti dari profile atau alur **Lupa password**.
 
@@ -103,8 +104,8 @@ Admin tambahan dibuat hanya dari `/admin/admins`:
 
 1. Admin aktif membuka menu **Akun admin**.
 2. Isi nama dan email baru, termasuk Gmail.
-3. Sistem membuat akun tanpa password bersama dan mengirim OTP login pertama.
-4. Admin baru masuk dari `/auth/admin-login`, lalu memasukkan kode delapan digit dari email.
+3. Supabase Edge Function membuat akun dan mengirim template email undangan bermerek.
+4. Admin baru mengaktifkan akun melalui tautan di email, tanpa secret key di Vercel.
 
 Tidak ada registrasi admin publik. Customer biasa tidak dapat mempromosikan diri sendiri; role selalu diperiksa lagi di database.
 
@@ -192,7 +193,7 @@ Admin:
 - Jalankan seluruh migration dan seed card definition.
 - Set Site URL Auth ke domain Vercel/production.
 - Salin template HTML bermerek dari `supabase/templates` ke Email Templates Supabase dan pastikan kode `{{ .Token }}` tampil pada signup serta Magic Link/OTP.
-- Tambahkan `SUPABASE_SECRET_KEY` hanya di environment server Vercel agar pembuatan admin tambahan aktif. Penghapusan customer menggunakan RPC admin yang role-checked dan tidak lagi bergantung pada key ini.
+- Deploy Edge Function `invite-admin`; undangan admin tambahan dan penghapusan customer tidak bergantung pada secret key di Vercel.
 - Jalankan `npm run admin:bootstrap`, login, lalu ganti password awal.
 - Aktifkan Realtime untuk tabel yang disertakan migration.
 - Ubah judul/deskripsi reward netral dari `/admin/program` sebelum go-live.

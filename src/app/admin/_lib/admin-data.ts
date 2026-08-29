@@ -10,6 +10,9 @@ type ProfileRow = {
   role: string | null;
   marketing_consent?: boolean | null;
   marketing_consent_at?: string | null;
+  date_of_birth?: string | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
   created_at: string | null;
   updated_at?: string | null;
   email?: string | null;
@@ -20,6 +23,7 @@ type MemberProgramRow = {
   program_id: string;
   user_id: string;
   status: string;
+  completed_cycles: number;
   joined_at: string | null;
   completed_at: string | null;
 };
@@ -82,6 +86,7 @@ type RewardRow = {
   member_card_id: string;
   user_id: string;
   status: string;
+  cycle_no: number;
   available_at: string | null;
   expires_at: string | null;
   redeemed_at: string | null;
@@ -360,7 +365,7 @@ export async function getAdminCustomerDetail(userId: string): Promise<CustomerDe
   const [programResult, requestResult, eventResult, rewardResult] = await Promise.all([
     client
       .from("member_programs")
-      .select("id, program_id, user_id, status, joined_at, completed_at")
+      .select("id, program_id, user_id, status, completed_cycles, joined_at, completed_at")
       .eq("user_id", userId)
       .order("joined_at", { ascending: false }),
     client
@@ -375,7 +380,7 @@ export async function getAdminCustomerDetail(userId: string): Promise<CustomerDe
       .order("created_at", { ascending: false }),
     client
       .from("reward_redemptions")
-      .select("id, member_card_id, user_id, status, available_at, expires_at, redeemed_at, redeemed_by, note")
+      .select("id, member_card_id, user_id, status, cycle_no, available_at, expires_at, redeemed_at, redeemed_by, note")
       .eq("user_id", userId)
       .order("available_at", { ascending: false }),
   ]);

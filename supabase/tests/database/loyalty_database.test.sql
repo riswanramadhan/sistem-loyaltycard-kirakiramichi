@@ -74,8 +74,8 @@ values (
   '30000000-0000-4000-8000-000000000001',
   'database-test-loyalty',
   'Database Test Loyalty',
+  7,
   6,
-  8,
   true
 );
 
@@ -89,17 +89,17 @@ select
   'Test Card ' || n,
   'Test Reward ' || n,
   case when n = 1 then 30 else null end
-from generate_series(1, 6) as n;
+from generate_series(1, 7) as n;
 
--- The 6/8 shape is a database invariant, not a UI convention.
+-- The 7/6 shape is a database invariant, not a UI convention.
 select extensions.throws_ok(
   $$
     insert into public.loyalty_programs (slug, name, total_cards, stamps_per_card)
-    values ('invalid-shape', 'Invalid', 5, 8)
+    values ('invalid-shape', 'Invalid', 6, 6)
   $$,
   '23514',
   null,
-  'program shape other than six cards/eight stamps is rejected'
+  'program shape other than seven cards/six stamps is rejected'
 );
 
 -- Auth fixtures invoke the real on_auth_user_created trigger.
@@ -108,12 +108,12 @@ values
   (
     '40000000-0000-4000-8000-000000000001',
     'customer-one@example.test',
-    '{"full_name":"Customer One","role":"admin","marketing_consent":true}'::jsonb
+    '{"full_name":"Customer One","role":"admin","date_of_birth":"1995-01-10","terms_accepted":true,"terms_version":"2026-08-30"}'::jsonb
   ),
   (
     '40000000-0000-4000-8000-000000000002',
     'customer-two@example.test',
-    '{"full_name":"Customer Two"}'::jsonb
+    '{"full_name":"Customer Two","date_of_birth":"1997-02-11","terms_accepted":true,"terms_version":"2026-08-30"}'::jsonb
   ),
   (
     '40000000-0000-4000-8000-000000000003',
@@ -155,8 +155,8 @@ select extensions.is(
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
   ),
-  6::bigint,
-  'join creates exactly six member cards'
+  7::bigint,
+  'join creates exactly seven member cards'
 );
 select extensions.is(
   (
@@ -261,7 +261,7 @@ where id = '30000000-0000-4000-8000-000000000001';
 -- Request validation, +1, pending state, and duplicate prevention.
 select extensions.throws_ok(
   format(
-    'select public.request_stamps(%L::uuid, 3::smallint, null)',
+    'select public.request_stamps(%L::uuid, 7::smallint, null)',
     (
       select mc.id
       from public.member_cards as mc
@@ -272,7 +272,7 @@ select extensions.throws_ok(
   ),
   '22023',
   'invalid_requested_count',
-  'request rejects a count outside one or two'
+  'request rejects a count outside one through six'
 );
 select extensions.lives_ok(
   format(
@@ -344,7 +344,7 @@ select extensions.throws_ok(
 
 select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000003', true);
 
--- The fixed six-card MVP does not permit disabling one definition.
+-- The fixed seven-card program does not permit disabling one definition.
 select extensions.throws_ok(
   $$
     select public.admin_update_card_definition(
@@ -513,10 +513,10 @@ select extensions.is(
   'rejection does not change stamp progress'
 );
 
--- Capacity, exact eighth stamp, reward, and sequential unlock.
+-- Capacity, exact sixth stamp, reward, and sequential unlock.
 select extensions.lives_ok(
   format(
-    'select public.adjust_member_stamps(%L::uuid, 5::smallint, %L)',
+    'select public.adjust_member_stamps(%L::uuid, 3::smallint, %L)',
     (
       select mc.id
       from public.member_cards as mc
@@ -526,7 +526,7 @@ select extensions.lives_ok(
     ),
     'Prepare capacity boundary test'
   ),
-  'admin adjustment can bring the active card to seven'
+  'admin adjustment can bring the active card to five'
 );
 select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000001', true);
 select extensions.throws_ok(
@@ -569,7 +569,7 @@ select extensions.lives_ok(
     ),
     'approve'
   ),
-  'eighth approved stamp completes the card atomically'
+  'sixth approved stamp completes the card atomically'
 );
 select extensions.is(
   (
@@ -580,7 +580,7 @@ select extensions.is(
       and mc.sequence_no = 1
   ),
   'completed'::text,
-  'eighth stamp marks card one completed'
+  'sixth stamp marks card one completed'
 );
 select extensions.is(
   (
@@ -625,7 +625,7 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 1
   ),
-  'active:7'::text,
+  'active:5'::text,
   'reversal reopens the completed card with corrected progress'
 );
 select extensions.is(
@@ -916,70 +916,42 @@ select extensions.throws_ok(
   'stamp ledger rows cannot be updated'
 );
 
--- Complete the remaining cards and the full six-card journey.
+-- Complete the remaining cards and start a second seven-card cycle.
 select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 8::smallint, %L)',
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 2),
     'Complete test card two'),
   'admin grant can complete card two'
 );
 select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 8::smallint, %L)',
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 3),
     'Complete test card three'),
   'admin grant can complete card three'
 );
 select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 8::smallint, %L)',
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 4),
     'Complete test card four'),
   'admin grant can complete card four'
 );
 select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 8::smallint, %L)',
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 5),
     'Complete test card five'),
   'admin grant can complete card five'
 );
 select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 8::smallint, %L)',
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 6),
     'Complete test card six'),
   'admin grant can complete card six'
 );
-select extensions.is(
-  (
-    select status::text
-    from public.member_programs
-    where user_id = '40000000-0000-4000-8000-000000000001'
-      and program_id = '30000000-0000-4000-8000-000000000001'
-  ),
-  'completed'::text,
-  'card six completion completes the member program'
-);
-select extensions.is(
-  (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
-  6::bigint,
-  'six completed cards create exactly six rewards'
-);
-
--- Reversing the final card reopens the member program and can be completed again.
-select extensions.is(
-  (
-    public.adjust_member_stamps(
-      (
-        select mc.id
-        from public.member_cards as mc
-        join public.member_programs as mp on mp.id = mc.member_program_id
-        where mp.user_id = '40000000-0000-4000-8000-000000000001'
-          and mc.sequence_no = 6
-      ),
-      (-1)::smallint,
-      'Correct final-card completion'
-    ) ->> 'completion_reversed'
-  )::boolean,
-  true,
-  'final-card revoke reports a completion reversal'
+select extensions.lives_ok(
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 7),
+    'Complete test card seven'),
+  'admin grant can complete card seven'
 );
 select extensions.is(
   (
@@ -989,7 +961,22 @@ select extensions.is(
       and program_id = '30000000-0000-4000-8000-000000000001'
   ),
   'active'::text,
-  'final-card reversal reopens the member program'
+  'card seven completion starts a new loyalty cycle'
+);
+select extensions.is(
+  (
+    select completed_cycles
+    from public.member_programs
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and program_id = '30000000-0000-4000-8000-000000000001'
+  ),
+  1,
+  'completed cycle counter increments exactly once'
+);
+select extensions.is(
+  (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
+  7::bigint,
+  'seven completed cards preserve exactly seven rewards'
 );
 select extensions.is(
   (
@@ -997,55 +984,54 @@ select extensions.is(
     from public.member_cards as mc
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
-      and mc.sequence_no = 6
+      and mc.sequence_no = 1
   ),
-  'active:7'::text,
-  'final-card reversal reopens card six at seven stamps'
-);
-select extensions.is(
-  (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
-  5::bigint,
-  'final-card reversal invalidates only card six reward'
-);
-select extensions.lives_ok(
-  format(
-    'select public.adjust_member_stamps(%L::uuid, 1::smallint, %L)',
-    (
-      select mc.id
-      from public.member_cards as mc
-      join public.member_programs as mp on mp.id = mc.member_program_id
-      where mp.user_id = '40000000-0000-4000-8000-000000000001'
-        and mc.sequence_no = 6
-    ),
-    'Restore final-card completion'
-  ),
-  'reopened final card can complete again'
+  'active:0'::text,
+  'new cycle returns immediately to an empty active card one'
 );
 select extensions.is(
   (
-    select status::text
-    from public.member_programs
-    where user_id = '40000000-0000-4000-8000-000000000001'
-      and program_id = '30000000-0000-4000-8000-000000000001'
-  ),
-  'completed'::text,
-  'recompletion closes the member program again'
-);
-select extensions.is(
-  (
-    select mc.status::text
+    select count(*)
     from public.member_cards as mc
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
-      and mc.sequence_no = 6
+      and mc.status = 'active'
   ),
-  'completed'::text,
-  'card six is completed again after correction'
+  1::bigint,
+  'new cycle has exactly one active card'
 );
 select extensions.is(
-  (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
-  6::bigint,
-  'recompletion recreates exactly one card six reward'
+  (
+    select mc.status::text || ':' || mc.stamps_count::text
+    from public.member_cards as mc
+    join public.member_programs as mp on mp.id = mc.member_program_id
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+      and mc.sequence_no = 2
+  ),
+  'locked:0'::text,
+  'card two is reset and locked for the new cycle'
+);
+select extensions.is(
+  (
+    select mc.status::text || ':' || mc.stamps_count::text
+    from public.member_cards as mc
+    join public.member_programs as mp on mp.id = mc.member_program_id
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+      and mc.sequence_no = 7
+  ),
+  'locked:0'::text,
+  'card seven is reset and locked after closing the cycle'
+);
+select extensions.is(
+  (select count(distinct cycle_no) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
+  1::bigint,
+  'first-cycle rewards retain their cycle number'
+);
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000001', true);
+select extensions.is(
+  (public.get_my_loyalty_state('database-test-loyalty') ->> 'current_cycle')::integer,
+  2,
+  'customer state exposes the second cycle immediately'
 );
 
 -- RLS prevents a different customer reading customer-one data.
@@ -1106,8 +1092,8 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.status = 'active'
   ),
-  0::bigint,
-  'a completed six-card journey has no active card'
+  1::bigint,
+  'a new loyalty cycle has exactly one active card'
 );
 select extensions.is(
   (

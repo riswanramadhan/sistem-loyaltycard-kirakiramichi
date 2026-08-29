@@ -14,6 +14,9 @@ const adminAccounts = migration("20260820000100_admin_account_management.sql");
 const realtimeAndAdminTransition = migration("20260826000100_realtime_and_admin_transition.sql");
 const customerDelete = migration("20260827000100_admin_customer_delete_rpc.sql");
 const completeRealtime = migration("20260827000200_complete_realtime_publication.sql");
+const birthdayAndTerms = migration("20260830000100_customer_birthday_and_terms.sql");
+const cycles = migration("20260830000200_seven_card_six_stamp_cycles.sql");
+const cycleRead = migration("20260830000300_cycle_aware_customer_read.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -32,12 +35,25 @@ describe("Supabase migration contract", () => {
     }
   });
 
-  it("enforces the fixed six-card/eight-stamp program and uniqueness rules", () => {
-    expect(schema).toContain("total_cards = 6 and stamps_per_card = 8");
+  it("enforces the seven-card/six-stamp cyclic program and uniqueness rules", () => {
+    expect(cycles).toContain("total_cards = 7 and stamps_per_card = 6");
+    expect(cycles).toContain("stamps_count between 0 and 6");
+    expect(cycles).toContain("requested_count between 1 and 6");
+    expect(cycles).toContain("completed_cycles");
+    expect(cycles).toContain("unique (member_card_id, cycle_no)");
+    expect(cycles).toContain("sequence_no between 1 and 7");
     expect(schema).toContain("member_cards_one_active_per_program_idx");
     expect(schema).toContain("stamp_requests_one_pending_per_user_idx");
-    expect(schema).toContain("stamps_count between 0 and 8");
     expect(schema).toContain("loyalty_card_definitions_fixed_mvp_active");
+  });
+
+  it("requires birthday and terms for new customer memberships", () => {
+    expect(birthdayAndTerms).toContain("date_of_birth date");
+    expect(birthdayAndTerms).toContain("terms_accepted_at");
+    expect(cycles).toContain("date_of_birth_required");
+    expect(cycles).toContain("terms_acceptance_required");
+    expect(cycleRead).toContain("'completed_cycles', mp.completed_cycles");
+    expect(cycleRead).toContain("'cycle_no', rr.cycle_no");
   });
 
   it("keeps raw privileged writes unavailable to authenticated clients", () => {
@@ -138,6 +154,14 @@ describe("Supabase migration contract", () => {
     expect(customerDelete).toContain("perform public.admin_prepare_customer_deletion");
     expect(customerDelete).toContain("delete from auth.users");
     expect(customerDelete).toContain("grant execute on function public.admin_delete_customer_account(uuid) to authenticated");
+    const inviteAdmin = readFileSync(
+      join(process.cwd(), "supabase", "functions", "invite-admin", "index.ts"),
+      "utf8",
+    ).toLowerCase();
+    expect(inviteAdmin).toContain("callerprofile?.role !== \"admin\"");
+    expect(inviteAdmin).toContain("inviteuserbyemail");
+    expect(inviteAdmin).toContain("supabase_service_role_key");
+    expect(inviteAdmin).toContain("auth.admin.deleteuser");
   });
 
   it("keeps the app, local auth, and branded templates on an eight-digit one-hour OTP", () => {
@@ -156,7 +180,7 @@ describe("Supabase migration contract", () => {
     ).toLowerCase();
     expect(pgTap).toContain("extensions.plan(108)");
     expect(pgTap).toContain("double approval is rejected");
-    expect(pgTap).toContain("card six completion completes the member program");
+    expect(pgTap).toContain("card seven completion starts a new loyalty cycle");
     expect(pgTap).toContain("customer cannot read another profile");
     expect(pgTap).toContain("an expired reward cannot be redeemed");
     expect(pgTap).toContain("reversal reopens the completed card with corrected progress");

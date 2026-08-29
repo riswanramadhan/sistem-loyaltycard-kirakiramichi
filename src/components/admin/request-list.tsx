@@ -4,6 +4,7 @@ import type { AdminRequestView } from "@/app/admin/_lib/admin-data";
 import { Card } from "@/components/ui/card";
 import { ReviewStampRequestActions } from "@/components/admin/action-controls";
 import { EmptyAdminState, RequestStatusBadge, displayText, formatAdminDate } from "@/components/admin/admin-ui";
+import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
 function whatsappLink(value: string | null) {
   if (!value) return null;
@@ -63,7 +64,7 @@ export function RequestList({
               </div>
               <div>
                 <dt className="text-xs text-ink-muted">Kartu & progres</dt>
-                <dd className="mt-1 font-bold">Card {request.cardSequence} · {request.stampsCount}/8</dd>
+                <dd className="mt-1 font-bold">Card {request.cardSequence} · {request.stampsCount}/{STAMPS_PER_CARD}</dd>
               </div>
               <div className="col-span-2">
                 <dt className="text-xs text-ink-muted">Dikirim</dt>
@@ -110,7 +111,7 @@ export function RequestList({
                 </td>
                 <td className="px-4 py-4">
                   <p className="font-bold">Card {request.cardSequence}</p>
-                  <p className="mt-1 text-xs text-ink-muted">{request.stampsCount}/8 stamp</p>
+                  <p className="mt-1 text-xs text-ink-muted">{request.stampsCount}/{STAMPS_PER_CARD} stamp</p>
                 </td>
                 <td className="whitespace-nowrap px-4 py-4 text-xs text-ink-muted">
                   {formatAdminDate(request.requestedAt)}

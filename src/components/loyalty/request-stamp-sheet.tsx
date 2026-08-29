@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Minus, Plus, Send, X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import { requestStampAction } from "@/app/loyalty/actions";
 import { Button } from "@/components/ui/button";
 import { TextareaField } from "@/components/ui/field";
@@ -27,7 +27,7 @@ export function RequestStampSheet({
   onSuccess: (message: string) => void;
 }) {
   const router = useRouter();
-  const [count, setCount] = useState<1 | 2>(1);
+  const [count, setCount] = useState(1);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -132,15 +132,15 @@ export function RequestStampSheet({
 
         <fieldset className="mt-6">
           <legend className="text-sm font-bold text-ink">Jumlah stamp</legend>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            {([1, 2] as const).map((value) => {
+          <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {[1, 2, 3, 4, 5, 6].map((value) => {
               const disabled = value > remaining || hasPendingRequest;
               const selected = count === value;
               return (
                 <label
                   key={value}
                   className={cn(
-                    "relative flex min-h-20 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 px-3 font-extrabold transition focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 motion-reduce:transition-none",
+                    "relative flex min-h-16 cursor-pointer items-center justify-center gap-1 rounded-2xl border-2 px-2 font-extrabold transition focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 motion-reduce:transition-none",
                     selected ? "border-brand bg-brand-soft text-brand-strong" : "border-line bg-white text-ink",
                     disabled && "cursor-not-allowed opacity-45",
                   )}
@@ -154,8 +154,8 @@ export function RequestStampSheet({
                     onChange={() => setCount(value)}
                     className="sr-only"
                   />
-                  {value === 1 ? <Plus className="size-5" aria-hidden="true" /> : <Send className="size-5" aria-hidden="true" />}
-                  +{value} {value === 1 ? "Stamp" : "Stamps"}
+                  <Plus className="size-4" aria-hidden="true" />
+                  {value}
                 </label>
               );
             })}
@@ -163,7 +163,7 @@ export function RequestStampSheet({
           {remaining === 1 ? (
             <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
               <Minus className="size-3.5" aria-hidden="true" />
-              Pilihan +2 tidak tersedia karena tinggal satu slot.
+              Hanya +1 yang tersedia karena tinggal satu slot.
             </p>
           ) : null}
         </fieldset>

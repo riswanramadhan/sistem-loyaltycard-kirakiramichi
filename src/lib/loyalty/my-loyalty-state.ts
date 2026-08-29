@@ -7,6 +7,9 @@ export type MyLoyaltyState = {
     full_name: string;
     email: string | null;
     whatsapp: string | null;
+    date_of_birth: string | null;
+    terms_accepted_at: string | null;
+    terms_version: string | null;
     role: string;
     marketing_consent: boolean;
     marketing_consent_at: string | null;
@@ -29,6 +32,7 @@ export type MyLoyaltyState = {
     status: string;
     joined_at: string;
     completed_at: string | null;
+    completed_cycles: number;
   } | null;
   cards: Array<{
     id: string;
@@ -58,6 +62,7 @@ export type MyLoyaltyState = {
     } | null;
     reward: {
       id: string;
+      cycle_no: number;
       status: string;
       available_at: string | null;
       expires_at: string | null;
@@ -90,6 +95,7 @@ export type MyLoyaltyState = {
   rewards: Array<{
     id: string;
     member_card_id: string;
+    cycle_no: number;
     status: string;
     available_at: string;
     expires_at: string | null;
