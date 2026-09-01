@@ -35,8 +35,8 @@ export default async function JoinPage() {
           <h1 className="mt-5 text-3xl font-extrabold">Join Kira Kira Michi Loyalty</h1>
           <p className="mt-3 text-sm leading-6 text-ink-muted">Kumpulkan 6 stamp di setiap card, buka reward, dan lanjutkan sampai Card 7. Setelah satu putaran selesai, perjalanan kembali ke Card 1.</p>
           <div className="mt-6 grid grid-cols-2 gap-3 text-left text-xs">
-            <div className="rounded-xl bg-warning-soft p-3"><Sparkles className="size-5 text-warning" aria-hidden="true" /><p className="mt-2 font-bold text-ink">Request +1 / +2</p></div>
-            <div className="rounded-xl bg-brand-soft p-3"><Gift className="size-5 text-brand" aria-hidden="true" /><p className="mt-2 font-bold text-ink">6 reward stages</p></div>
+            <div className="rounded-xl bg-warning-soft p-3"><Sparkles className="size-5 text-warning" aria-hidden="true" /><p className="mt-2 font-bold text-ink">Request +1 sampai +6</p></div>
+            <div className="rounded-xl bg-brand-soft p-3"><Gift className="size-5 text-brand" aria-hidden="true" /><p className="mt-2 font-bold text-ink">7 reward stages</p></div>
           </div>
           {user ? (
             <div role="alert" className="mt-6 rounded-xl bg-danger-soft p-3 text-sm text-danger">Loyalty belum bisa diaktifkan. Coba lagi sebentar ya.</div>

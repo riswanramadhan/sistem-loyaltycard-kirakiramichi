@@ -5,6 +5,7 @@ import { LoyaltyJourney } from "@/components/loyalty/loyalty-journey";
 import { firstName } from "@/components/loyalty/format";
 import type { LoyaltyCardStatus, LoyaltyCardView } from "@/components/loyalty/types";
 import { getMyLoyaltyState } from "@/lib/loyalty/my-loyalty-state";
+import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
 export const metadata: Metadata = {
   title: "Loyalty",
@@ -64,7 +65,7 @@ export default async function LoyaltyPage() {
       id: row.id,
       sequenceNo: row.sequence_no,
       status: cardStatus(row.status),
-      stampsCount: Math.max(0, Math.min(program.stamps_per_card, row.stamps_count)),
+      stampsCount: Math.max(0, Math.min(STAMPS_PER_CARD, row.stamps_count)),
       title: definition?.title ?? null,
       description: definition?.description ?? null,
       rewardTitle: definition?.reward_title ?? null,
@@ -81,7 +82,7 @@ export default async function LoyaltyPage() {
 
   const active = cards.find((card) => card.status === "active") ?? null;
   const completedCards = cards.filter((card) => card.status === "completed").length;
-  const remaining = active ? Math.max(0, program.stamps_per_card - active.stampsCount) : 0;
+  const remaining = active ? Math.max(0, STAMPS_PER_CARD - active.stampsCount) : 0;
   const completedCycles = Math.max(0, membership.completed_cycles ?? 0);
   const subcopy = active && remaining <= 2
       ? `Tinggal ${remaining} stamp lagi menuju reward berikutnya.`

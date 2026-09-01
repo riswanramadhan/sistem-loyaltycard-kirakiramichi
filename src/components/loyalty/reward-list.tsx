@@ -1,4 +1,4 @@
-import { BadgeCheck, CalendarClock, Gift, LockKeyhole, Sparkles } from "lucide-react";
+import { BadgeCheck, CalendarClock, Gift, LockKeyhole } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/components/loyalty/format";
 import type { RewardView } from "@/components/loyalty/types";
@@ -58,7 +58,7 @@ function RewardTicket({ reward }: { reward: RewardView }) {
           )}
         >
           {reward.status === "available" ? (
-            <Sparkles className="size-5" aria-hidden="true" />
+            <Gift className="size-5" aria-hidden="true" />
           ) : locked ? (
             <LockKeyhole className="size-5" aria-hidden="true" />
           ) : expired ? (

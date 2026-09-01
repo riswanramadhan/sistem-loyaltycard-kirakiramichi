@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { ArrowRight, Fingerprint, LoaderCircle } from "lucide-react";
 import { loginAction, type AuthState } from "@/app/auth/actions";
+import { PasswordField } from "@/components/auth/password-field";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { StatusMessage } from "@/components/ui/status-message";
@@ -12,13 +13,22 @@ const initialState: AuthState = { status: "idle" };
 
 export function LoginForm({ next = "/loyalty" }: { next?: string }) {
   const [state, action, pending] = useActionState(loginAction, initialState);
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <form action={action} className="grid gap-5">
       <input type="hidden" name="next" value={next} />
       {state.message && <StatusMessage>{state.message}</StatusMessage>}
       <Field label="Email" name="email" type="email" autoComplete="email" required defaultValue={state.fields?.email} placeholder="nama@email.com" />
       <div>
-        <Field label="Password" name="password" type="password" autoComplete="current-password" required placeholder="Minimal 8 karakter" />
+        <PasswordField
+          label="Password"
+          name="password"
+          autoComplete="current-password"
+          required
+          placeholder="Masukkan password"
+          visible={showPassword}
+          onToggleVisibility={() => setShowPassword((visible) => !visible)}
+        />
         <div className="mt-2 text-right">
           <Link href="/auth/forgot-password" className="text-xs font-bold text-brand hover:underline">Lupa password?</Link>
         </div>

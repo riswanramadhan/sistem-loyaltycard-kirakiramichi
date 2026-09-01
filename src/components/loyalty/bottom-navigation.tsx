@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Clock3, Gift, Home, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,11 @@ function isCurrent(pathname: string, href: string) {
 
 export function BottomNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    for (const { href } of items) router.prefetch(href);
+  }, [router]);
 
   return (
     <nav
@@ -31,6 +37,7 @@ export function BottomNavigation() {
             <Link
               key={href}
               href={href}
+              prefetch
               aria-current={active ? "page" : undefined}
               className={cn(
                 "group flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none",
