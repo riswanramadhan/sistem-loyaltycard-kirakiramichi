@@ -2,7 +2,7 @@ export const TOTAL_CARDS = 7;
 export const STAMPS_PER_CARD = 6;
 export const REQUEST_COUNTS = [1, 2, 3, 4, 5, 6] as const;
 
-export type CardStatus = "locked" | "active" | "completed";
+export type CardStatus = "active" | "completed";
 export type RequestStatus = "pending" | "approved" | "rejected";
 
 export class LoyaltyRuleError extends Error {
@@ -12,10 +12,11 @@ export class LoyaltyRuleError extends Error {
   }
 }
 
+// Every card is open from the start; only a completed card stops taking stamps.
 export function createInitialJourney() {
   return Array.from({ length: TOTAL_CARDS }, (_, index) => ({
     sequenceNo: index + 1,
-    status: (index === 0 ? "active" : "locked") as CardStatus,
+    status: "active" as CardStatus,
     stampsCount: 0,
   }));
 }
@@ -28,16 +29,17 @@ export function assertValidStampRequest(input: {
   cardStatus: CardStatus;
   stampsCount: number;
   requestedCount: number;
+  /** A pending request on this same card; other cards do not matter. */
   hasPendingRequest: boolean;
 }) {
   if (input.cardStatus !== "active") {
-    throw new LoyaltyRuleError("CARD_NOT_ACTIVE", "Card ini belum aktif.");
+    throw new LoyaltyRuleError("CARD_NOT_ACTIVE", "Card ini sudah selesai.");
   }
   if (!REQUEST_COUNTS.includes(input.requestedCount as (typeof REQUEST_COUNTS)[number])) {
     throw new LoyaltyRuleError("INVALID_COUNT", "Jumlah request harus 1 sampai 6 stamp.");
   }
   if (input.hasPendingRequest) {
-    throw new LoyaltyRuleError("PENDING_EXISTS", "Masih ada request yang sedang diperiksa.");
+    throw new LoyaltyRuleError("PENDING_EXISTS", "Card ini masih punya request yang sedang diperiksa.");
   }
   if (input.requestedCount > remainingStamps(input.stampsCount)) {
     throw new LoyaltyRuleError("CAPACITY_EXCEEDED", "Jumlah stamp melebihi slot yang tersisa.");
@@ -52,13 +54,14 @@ export function reviewRequest(input: {
   approvedCount: number;
   cardStatus: CardStatus;
   stampsCount: number;
-  sequenceNo: number;
+  /** True when every other card of the member is already completed. */
+  allOtherCardsCompleted: boolean;
 }) {
   if (input.requestStatus !== "pending") {
     throw new LoyaltyRuleError("ALREADY_REVIEWED", "Request ini sudah ditinjau.");
   }
   if (input.cardStatus !== "active") {
-    throw new LoyaltyRuleError("CARD_NOT_ACTIVE", "Card ini sudah tidak aktif.");
+    throw new LoyaltyRuleError("CARD_NOT_ACTIVE", "Card ini sudah selesai.");
   }
   if (input.approvedCount < 1 || input.approvedCount > input.requestedCount) {
     throw new LoyaltyRuleError(
@@ -76,8 +79,8 @@ export function reviewRequest(input: {
     nextStampsCount,
     cardStatus: (completed ? "completed" : "active") as CardStatus,
     rewardAvailable: completed,
-    unlockNextCard: completed && input.sequenceNo < TOTAL_CARDS,
-    cycleCompleted: completed && input.sequenceNo === TOTAL_CARDS,
+    // The cycle restarts once all seven cards are complete, whatever the order.
+    cycleCompleted: completed && input.allOtherCardsCompleted,
     programCompleted: false,
   };
 }

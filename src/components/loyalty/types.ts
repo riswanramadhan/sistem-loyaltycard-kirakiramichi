@@ -1,4 +1,4 @@
-export type LoyaltyCardStatus = "locked" | "active" | "completed";
+export type LoyaltyCardStatus = "active" | "completed";
 
 export type LoyaltyCardView = {
   id: string;

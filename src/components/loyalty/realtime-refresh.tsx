@@ -14,7 +14,7 @@ type ToastState = { kind: ToastKind; sequence: number; quantity?: number };
 const feedback = {
   approved: { title: "Yatta! Stamp sudah masuk", copy: "Stamp baru berhasil ditambahkan ke card kamu.", priority: 2 },
   rejected: { title: "Request stamp ditolak", copy: "Cek riwayat atau hubungi admin untuk detailnya, ya.", priority: 2 },
-  completed: { title: "Sugoi! Card kamu lengkap", copy: "Reward baru terbuka dan card berikutnya siap.", priority: 3 },
+  completed: { title: "Sugoi! Card kamu lengkap", copy: "Reward baru terbuka. Yuk lanjut kumpulkan stamp di card lainnya.", priority: 3 },
   reward: { title: "Reward diperbarui", copy: "Cek detail dan masa berlakunya di halaman Rewards.", priority: 1 },
 };
 

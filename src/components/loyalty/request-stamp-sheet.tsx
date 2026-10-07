@@ -60,7 +60,7 @@ export function RequestStampSheet({
 
   const submit = () => {
     if (hasPendingRequest) {
-      setError("Request sebelumnya masih diperiksa.");
+      setError("Request di card ini masih diperiksa.");
       return;
     }
     if (count > remaining) {
@@ -184,7 +184,7 @@ export function RequestStampSheet({
         {error ? <StatusMessage className="mt-4">{error}</StatusMessage> : null}
         {hasPendingRequest ? (
           <StatusMessage className="mt-4">
-            Request sebelumnya masih diperiksa. Kamu belum bisa mengirim request baru.
+            Request di card ini masih diperiksa. Kamu belum bisa mengirim request baru untuk card ini, tapi card lain tetap bisa.
           </StatusMessage>
         ) : null}
 

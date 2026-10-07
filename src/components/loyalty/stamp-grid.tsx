@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { Clock3, LockKeyhole, Plus } from "lucide-react";
+import { Clock3, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
-type StampState = "empty" | "pending" | "approved" | "latest" | "locked";
+type StampState = "empty" | "pending" | "approved" | "latest";
 
 function StampSeal({ latest }: { latest: boolean }) {
   return (
@@ -33,7 +33,6 @@ function labelFor(state: StampState, position: number) {
   if (state === "approved") return `${prefix}, stamp sudah masuk`;
   if (state === "latest") return `${prefix}, stamp terbaru sudah masuk`;
   if (state === "pending") return `${prefix}, sedang diperiksa`;
-  if (state === "locked") return `${prefix}, terkunci`;
   return `${prefix}, kosong. Request stamp`;
 }
 
@@ -42,7 +41,6 @@ export function StampGrid({
   pendingCount,
   latestApprovedCount,
   isActive,
-  isLocked,
   requestDisabled,
   onRequest,
 }: {
@@ -50,7 +48,6 @@ export function StampGrid({
   pendingCount: number;
   latestApprovedCount: number;
   isActive: boolean;
-  isLocked: boolean;
   requestDisabled: boolean;
   onRequest: () => void;
 }) {
@@ -59,7 +56,6 @@ export function StampGrid({
   const latestStart = Math.max(0, approved - Math.max(0, latestApprovedCount));
 
   const states: StampState[] = Array.from({ length: STAMPS_PER_CARD }, (_, index) => {
-    if (isLocked) return "locked";
     if (index < approved) return index >= latestStart && latestApprovedCount > 0 ? "latest" : "approved";
     if (index < approved + pending) return "pending";
     return "empty";
@@ -85,7 +81,6 @@ export function StampGrid({
               className={cn(
                 "grid size-14 place-items-center rounded-[38%] sm:size-16",
                 state === "pending" && "border-2 border-dashed border-warning/45 bg-warning-soft text-warning",
-                state === "locked" && "border border-line bg-surface-muted text-ink-faint",
                 state === "empty" && "border-2 border-dashed border-line bg-surface text-ink-faint",
               )}
             >
@@ -93,8 +88,6 @@ export function StampGrid({
                 <StampSeal latest={state === "latest"} />
               ) : state === "pending" ? (
                 <Clock3 className="size-5" aria-hidden="true" />
-              ) : state === "locked" ? (
-                <LockKeyhole className="size-4" aria-hidden="true" />
               ) : (
                 <span className="size-1.5 rounded-full bg-line" aria-hidden="true" />
               )}

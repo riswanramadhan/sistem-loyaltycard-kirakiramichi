@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, CheckCircle2, Clock3, Gift, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, Clock3, Gift, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RequestStampSheet } from "@/components/loyalty/request-stamp-sheet";
@@ -10,6 +10,7 @@ import { StampGrid } from "@/components/loyalty/stamp-grid";
 import type { LoyaltyCardView } from "@/components/loyalty/types";
 import { cn } from "@/lib/utils";
 import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
+import { applyOptimisticGrants } from "@/lib/loyalty/optimistic-grant";
 import {
   LOYALTY_STAMP_GRANTED_EVENT,
   type LoyaltyStampGrantedDetail,
@@ -18,57 +19,15 @@ import {
 const stateCopy = {
   active: { label: "Aktif", tone: "brand" as const },
   completed: { label: "Selesai", tone: "success" as const },
-  locked: { label: "Terkunci", tone: "neutral" as const },
 };
-
-function applyOptimisticGrant(
-  currentCards: LoyaltyCardView[],
-  detail: LoyaltyStampGrantedDetail,
-): LoyaltyCardView[] {
-  const target = currentCards.find((card) => card.id === detail.memberCardId);
-  if (!target || target.latestEventId === detail.eventId || target.status !== "active") {
-    return currentCards;
-  }
-
-  const nextStampCount = Math.min(STAMPS_PER_CARD, target.stampsCount + detail.quantity);
-  const completed = nextStampCount === STAMPS_PER_CARD;
-
-  if (completed && target.sequenceNo === TOTAL_CARDS) {
-    return currentCards.map((card) => ({
-      ...card,
-      status: card.sequenceNo === 1 ? "active" as const : "locked" as const,
-      stampsCount: 0,
-      pendingCount: 0,
-      hasPendingRequest: false,
-      latestApprovedCount: card.id === target.id ? detail.quantity : 0,
-      latestEventId: card.id === target.id ? detail.eventId : card.latestEventId,
-    }));
-  }
-
-  return currentCards.map((card) => {
-    if (card.id === target.id) {
-      return {
-        ...card,
-        status: completed ? "completed" as const : "active" as const,
-        stampsCount: nextStampCount,
-        pendingCount: 0,
-        hasPendingRequest: false,
-        latestApprovedCount: detail.quantity,
-        latestEventId: detail.eventId,
-      };
-    }
-    if (completed && card.sequenceNo === target.sequenceNo + 1) {
-      return { ...card, status: "active" as const };
-    }
-    return card;
-  });
-}
 
 function JourneyIndicator({
   cards,
+  nextCardId,
   onSelect,
 }: {
   cards: LoyaltyCardView[];
+  nextCardId: string | null;
   onSelect: (card: LoyaltyCardView) => void;
 }) {
   return (
@@ -80,7 +39,7 @@ function JourneyIndicator({
               <span
                 className={cn(
                   "h-0.5 w-5 sm:w-8",
-                  card.status === "locked" ? "bg-line" : "bg-brand/35",
+                  cards[index - 1].status === "completed" ? "bg-brand/35" : "bg-line",
                 )}
                 aria-hidden="true"
               />
@@ -91,15 +50,13 @@ function JourneyIndicator({
               aria-label={`Lihat Card ${card.sequenceNo}, ${stateCopy[card.status].label}`}
               className={cn(
                 "grid size-10 place-items-center rounded-full border-2 text-xs font-extrabold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 motion-reduce:transition-none",
-                card.status === "active" && "border-brand bg-brand text-white shadow-[0_3px_0_#b9151a]",
+                card.id === nextCardId && "border-brand bg-brand text-white shadow-[0_3px_0_#b9151a]",
+                card.status === "active" && card.id !== nextCardId && "border-brand/40 bg-white text-brand",
                 card.status === "completed" && "border-success bg-success-soft text-success",
-                card.status === "locked" && "border-line bg-surface-muted text-ink-faint",
               )}
             >
               {card.status === "completed" ? (
                 <Check className="size-4" aria-hidden="true" />
-              ) : card.status === "locked" ? (
-                <LockKeyhole className="size-3.5" aria-hidden="true" />
               ) : (
                 card.sequenceNo
               )}
@@ -141,7 +98,6 @@ function LoyaltyCard({
 }) {
   const remaining = Math.max(0, STAMPS_PER_CARD - card.stampsCount);
   const isActive = card.status === "active";
-  const isLocked = card.status === "locked";
   const copy = stateCopy[card.status];
 
   return (
@@ -151,7 +107,6 @@ function LoyaltyCard({
       className={cn(
         "relative flex w-[calc(100vw-2.5rem)] max-w-[390px] shrink-0 snap-center flex-col overflow-hidden rounded-[1.75rem] border bg-white shadow-[0_16px_45px_rgba(43,39,40,0.09)] sm:w-[390px]",
         isActive ? "border-brand/30" : "border-line",
-        isLocked && "bg-surface-muted/75",
       )}
       aria-labelledby={`card-${card.id}-title`}
     >
@@ -207,7 +162,6 @@ function LoyaltyCard({
             pendingCount={card.pendingCount}
             latestApprovedCount={card.latestApprovedCount}
             isActive={isActive}
-            isLocked={isLocked}
             requestDisabled={card.hasPendingRequest || remaining === 0}
             onRequest={() => onRequest(card)}
           />
@@ -218,12 +172,7 @@ function LoyaltyCard({
         </div>
 
         <div className="mt-auto pt-5">
-          {isLocked ? (
-            <p className="flex items-start gap-2 rounded-xl bg-surface-muted px-3 py-2.5 text-xs font-semibold leading-5 text-ink-muted">
-              <LockKeyhole className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Selesaikan Card {Math.max(1, card.sequenceNo - 1)} untuk membuka card ini.
-            </p>
-          ) : card.status === "completed" ? (
+          {card.status === "completed" ? (
             <Link
               href="/loyalty/rewards"
               className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-sm font-extrabold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 motion-reduce:transition-none"
@@ -252,20 +201,10 @@ export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardVie
   const [sheetCardId, setSheetCardId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const cards = useMemo(() => {
-    const acknowledgedGrantIndex = new Map<string, number>();
-    optimisticGrants.forEach((grant, index) => {
-      const currentCard = incomingCards.find((card) => card.id === grant.memberCardId);
-      if (currentCard?.latestEventId === grant.eventId) {
-        acknowledgedGrantIndex.set(grant.memberCardId, index);
-      }
-    });
-
-    return optimisticGrants.reduce<LoyaltyCardView[]>((currentCards, grant, index) => {
-      const acknowledgedAt = acknowledgedGrantIndex.get(grant.memberCardId) ?? -1;
-      return index <= acknowledgedAt ? currentCards : applyOptimisticGrant(currentCards, grant);
-    }, incomingCards);
-  }, [incomingCards, optimisticGrants]);
+  const cards = useMemo(
+    () => applyOptimisticGrants(incomingCards, optimisticGrants),
+    [incomingCards, optimisticGrants],
+  );
 
   useEffect(() => {
     const applyGrantedStamps = (event: Event) => {
@@ -282,10 +221,13 @@ export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardVie
     return () => window.removeEventListener(LOYALTY_STAMP_GRANTED_EVENT, applyGrantedStamps);
   }, []);
 
-  const activeCard = useMemo(
+  const sheetCard = useMemo(
     () => cards.find((card) => card.id === sheetCardId) ?? null,
     [cards, sheetCardId],
   );
+
+  // The unfinished card with the lowest number is the one a customer most likely continues with.
+  const nextCard = useMemo(() => cards.find((card) => card.status === "active") ?? null, [cards]);
 
   const scrollToCard = useCallback((card: LoyaltyCardView) => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -296,12 +238,21 @@ export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardVie
     });
   }, []);
 
+  // Land on the first unfinished card once. Every card is open now, so scrolling again on each
+  // refresh would pull the customer away from the card they are working on.
+  const hasAutoScrolled = useRef(false);
   useEffect(() => {
-    const active = cards.find((card) => card.status === "active");
-    if (!active || active.sequenceNo === 1) return;
-    const timer = window.setTimeout(() => scrollToCard(active), 80);
+    if (hasAutoScrolled.current || !nextCard) return;
+    if (nextCard.sequenceNo === 1) {
+      hasAutoScrolled.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      hasAutoScrolled.current = true;
+      scrollToCard(nextCard);
+    }, 80);
     return () => window.clearTimeout(timer);
-  }, [cards, scrollToCard]);
+  }, [nextCard, scrollToCard]);
 
   useEffect(() => {
     if (!notice) return;
@@ -326,7 +277,7 @@ export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardVie
             Tujuh card, satu putaran seru
           </h2>
         </div>
-        <JourneyIndicator cards={cards} onSelect={scrollToCard} />
+        <JourneyIndicator cards={cards} nextCardId={nextCard?.id ?? null} onSelect={scrollToCard} />
       </div>
 
       {notice ? (
@@ -360,13 +311,13 @@ export function LoyaltyJourney({ cards: incomingCards }: { cards: LoyaltyCardVie
         <div className="w-px shrink-0" aria-hidden="true" />
       </div>
 
-      {activeCard ? (
+      {sheetCard ? (
         <RequestStampSheet
           open
-          memberCardId={activeCard.id}
-          cardNumber={activeCard.sequenceNo}
-          remaining={Math.max(0, STAMPS_PER_CARD - activeCard.stampsCount)}
-          hasPendingRequest={activeCard.hasPendingRequest}
+          memberCardId={sheetCard.id}
+          cardNumber={sheetCard.sequenceNo}
+          remaining={Math.max(0, STAMPS_PER_CARD - sheetCard.stampsCount)}
+          hasPendingRequest={sheetCard.hasPendingRequest}
           onClose={() => setSheetCardId(null)}
           onSuccess={setNotice}
         />

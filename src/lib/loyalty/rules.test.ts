@@ -9,11 +9,11 @@ import {
 } from "./rules";
 
 describe("loyalty membership initialization", () => {
-  it("creates exactly seven cards with only Card 1 active", () => {
+  it("creates exactly seven cards and opens every one of them", () => {
     const cards = createInitialJourney();
     expect(cards).toHaveLength(7);
-    expect(cards[0]).toEqual({ sequenceNo: 1, status: "active", stampsCount: 0 });
-    expect(cards.slice(1).every((card) => card.status === "locked")).toBe(true);
+    expect(cards.every((card) => card.status === "active" && card.stampsCount === 0)).toBe(true);
+    expect(cards.map((card) => card.sequenceNo)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
   it("is deterministic when initialization is requested repeatedly", () => {
@@ -28,6 +28,19 @@ describe("stamp requests", () => {
         cardStatus: "active",
         stampsCount: 0,
         requestedCount,
+        hasPendingRequest: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("lets the highest card be requested without any other card being completed", () => {
+    const cards = createInitialJourney();
+    const card7 = cards[6];
+    expect(
+      assertValidStampRequest({
+        cardStatus: card7.status,
+        stampsCount: card7.stampsCount,
+        requestedCount: 3,
         hasPendingRequest: false,
       }),
     ).toBe(true);
@@ -55,7 +68,7 @@ describe("stamp requests", () => {
     ).toThrowError(expect.objectContaining({ code: "CAPACITY_EXCEEDED" }));
   });
 
-  it("blocks a second unresolved request", () => {
+  it("blocks a second unresolved request on the same card", () => {
     expect(() =>
       assertValidStampRequest({
         cardStatus: "active",
@@ -66,15 +79,15 @@ describe("stamp requests", () => {
     ).toThrowError(expect.objectContaining({ code: "PENDING_EXISTS" }));
   });
 
-  it("blocks requests against locked cards", () => {
+  it("blocks requests against completed cards", () => {
     expect(() =>
       assertValidStampRequest({
-        cardStatus: "locked",
-        stampsCount: 0,
+        cardStatus: "completed",
+        stampsCount: 6,
         requestedCount: 1,
         hasPendingRequest: false,
       }),
-    ).toThrowError(LoyaltyRuleError);
+    ).toThrowError(expect.objectContaining({ code: "CARD_NOT_ACTIVE" }));
   });
 });
 
@@ -87,7 +100,7 @@ describe("admin review", () => {
         approvedCount: 2,
         cardStatus: "active",
         stampsCount: 4,
-        sequenceNo: 1,
+        allOtherCardsCompleted: false,
       }).nextStampsCount,
     ).toBe(6);
   });
@@ -100,7 +113,7 @@ describe("admin review", () => {
         approvedCount: 1,
         cardStatus: "active",
         stampsCount: 4,
-        sequenceNo: 1,
+        allOtherCardsCompleted: false,
       }).nextStampsCount,
     ).toBe(5);
   });
@@ -113,7 +126,7 @@ describe("admin review", () => {
         approvedCount: 2,
         cardStatus: "active",
         stampsCount: 2,
-        sequenceNo: 1,
+        allOtherCardsCompleted: false,
       }),
     ).toThrowError(expect.objectContaining({ code: "INVALID_APPROVAL" }));
   });
@@ -126,7 +139,7 @@ describe("admin review", () => {
         approvedCount: 1,
         cardStatus: "active",
         stampsCount: 2,
-        sequenceNo: 1,
+        allOtherCardsCompleted: false,
       }),
     ).toThrowError(expect.objectContaining({ code: "ALREADY_REVIEWED" }));
   });
@@ -143,36 +156,63 @@ describe("admin review", () => {
 });
 
 describe("progression", () => {
-  it("completes a card exactly at stamp 6 and unlocks the next card", () => {
+  it("completes a card exactly at stamp 6 and issues its reward without touching other cards", () => {
     const result = reviewRequest({
       requestStatus: "pending",
       requestedCount: 1,
       approvedCount: 1,
       cardStatus: "active",
       stampsCount: 5,
-      sequenceNo: 1,
+      allOtherCardsCompleted: false,
     });
     expect(result).toMatchObject({
       nextStampsCount: 6,
       cardStatus: "completed",
       rewardAvailable: true,
-      unlockNextCard: true,
+      cycleCompleted: false,
       programCompleted: false,
     });
+    expect(result).not.toHaveProperty("unlockNextCard");
   });
 
-  it("completes a cycle after Card 7 and starts again from Card 1", () => {
+  it("completing Card 7 first does not end the cycle while other cards are unfinished", () => {
     const result = reviewRequest({
       requestStatus: "pending",
       requestedCount: 1,
       approvedCount: 1,
       cardStatus: "active",
       stampsCount: 5,
-      sequenceNo: 7,
+      allOtherCardsCompleted: false,
     });
-    expect(result.unlockNextCard).toBe(false);
+    expect(result.cardStatus).toBe("completed");
+    expect(result.rewardAvailable).toBe(true);
+    expect(result.cycleCompleted).toBe(false);
+  });
+
+  it("completes the cycle with whichever card is finished last", () => {
+    const result = reviewRequest({
+      requestStatus: "pending",
+      requestedCount: 1,
+      approvedCount: 1,
+      cardStatus: "active",
+      stampsCount: 5,
+      allOtherCardsCompleted: true,
+    });
     expect(result.cycleCompleted).toBe(true);
     expect(result.programCompleted).toBe(false);
+  });
+
+  it("does not complete the cycle on a partial approval even if other cards are complete", () => {
+    const result = reviewRequest({
+      requestStatus: "pending",
+      requestedCount: 2,
+      approvedCount: 1,
+      cardStatus: "active",
+      stampsCount: 3,
+      allOtherCardsCompleted: true,
+    });
+    expect(result.cardStatus).toBe("active");
+    expect(result.cycleCompleted).toBe(false);
   });
 
   it("never permits progress over six", () => {
@@ -183,9 +223,22 @@ describe("progression", () => {
         approvedCount: 2,
         cardStatus: "active",
         stampsCount: 5,
-        sequenceNo: 1,
+        allOtherCardsCompleted: false,
       }),
     ).toThrowError(expect.objectContaining({ code: "CAPACITY_EXCEEDED" }));
+  });
+
+  it("refuses to approve stamps on a card that is already completed", () => {
+    expect(() =>
+      reviewRequest({
+        requestStatus: "pending",
+        requestedCount: 1,
+        approvedCount: 1,
+        cardStatus: "completed",
+        stampsCount: 6,
+        allOtherCardsCompleted: false,
+      }),
+    ).toThrowError(LoyaltyRuleError);
   });
 });
 
