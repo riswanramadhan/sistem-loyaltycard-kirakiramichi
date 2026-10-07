@@ -43,7 +43,11 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
   const currentCards = program
     ? cards.filter((card) => card.member_program_id === program.id)
     : [];
-  const activeCard = currentCards.find((card) => card.status === "active") ?? null;
+  // Every unfinished card is open, so "current" is the lowest-numbered one still collecting stamps.
+  const activeCard =
+    [...currentCards]
+      .sort((left, right) => left.sequence_no - right.sequence_no)
+      .find((card) => card.status === "active") ?? null;
   // This async Server Component is request-bound; one timestamp keeps all rows consistent.
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
@@ -52,43 +56,31 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
   const availableRewards = rewards.filter(
     (reward) => reward.status === "available" && !isRewardExpired(reward.expires_at),
   );
-  const latestCompletedCard = currentCards
-    .filter((card) => card.status === "completed")
-    .sort((left, right) => right.sequence_no - left.sequence_no)[0];
-  const reversibleCompletionId = (() => {
-    if (!latestCompletedCard) return null;
-    const reward = rewards.find(
-      (item) => item.member_card_id === latestCompletedCard.id && item.cycle_no === (program?.completed_cycles ?? 0) + 1,
-    );
-    if (!reward || reward.status !== "available") return null;
-    if (requests.some((request) => request.status === "pending")) return null;
-    if (latestCompletedCard.sequence_no < TOTAL_CARDS) {
-      const nextCard = currentCards.find(
-        (card) => card.sequence_no === latestCompletedCard.sequence_no + 1,
-      );
-      if (!nextCard || nextCard.status !== "active" || nextCard.stamps_count !== 0) return null;
-      if (program?.status !== "active") return null;
-    } else {
-      return null;
-    }
-    const laterCardIds = new Set(
-      currentCards.filter((card) => card.sequence_no > latestCompletedCard.sequence_no).map((card) => card.id),
-    );
-    const hasDownstreamProgress = currentCards.some(
-      (card) => card.sequence_no > latestCompletedCard.sequence_no && card.stamps_count > 0,
-    );
-    const hasDownstreamActivity =
-      events.some((event) => laterCardIds.has(event.member_card_id)) ||
-      requests.some((request) => laterCardIds.has(request.member_card_id));
-    return hasDownstreamProgress || hasDownstreamActivity ? null : latestCompletedCard.id;
-  })();
+  // Cards are independent, so any completed card can be reopened while this cycle's reward is
+  // still unredeemed and no request is waiting on that card (mirrors adjust_member_stamps).
+  const currentCycleNo = (program?.completed_cycles ?? 0) + 1;
+  const reversibleCompletionIds = new Set(
+    currentCards
+      .filter(
+        (card) =>
+          card.status === "completed" &&
+          rewards.some(
+            (reward) =>
+              reward.member_card_id === card.id &&
+              reward.cycle_no === currentCycleNo &&
+              reward.status === "available",
+          ) &&
+          !requests.some((request) => request.status === "pending" && request.member_card_id === card.id),
+      )
+      .map((card) => card.id),
+  );
   const adjustmentCards = currentCards.map((card) => ({
     id: card.id,
     sequence: card.sequence_no,
     title: card.definition?.title?.trim() || `Loyalty Card ${card.sequence_no}`,
     status: card.status,
     stamps: card.stamps_count,
-    canReverseCompletion: card.id === reversibleCompletionId,
+    canReverseCompletion: reversibleCompletionIds.has(card.id),
   }));
 
   return (
@@ -136,8 +128,8 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
               <p className="mt-2 text-sm text-ink-muted">
                 {activeCard
                   ? `${activeCard.stamps_count}/${STAMPS_PER_CARD} stamp terkumpul`
-                  : reversibleCompletionId
-                    ? "Completion terakhir masih dapat dikoreksi dengan alasan audit."
+                  : reversibleCompletionIds.size > 0
+                    ? "Completion kartu masih dapat dikoreksi dengan alasan audit."
                     : "Tidak ada penyesuaian yang dapat dilakukan."}
               </p>
             </div>
@@ -160,7 +152,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
         ) : (
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => (
-              <article key={card.id} className={cn("rounded-2xl border p-4", card.status === "active" ? "border-brand/35 bg-brand-soft/35" : "border-line bg-surface-muted/40")}>
+              <article key={card.id} className={cn("rounded-2xl border p-4", card.id === activeCard?.id ? "border-brand/35 bg-brand-soft/35" : "border-line bg-surface-muted/40")}>
                 <div className="flex items-start justify-between gap-3">
                   <div><p className="text-xs font-extrabold uppercase tracking-wide text-ink-muted">Card {card.sequence_no} dari {TOTAL_CARDS}</p><h3 className="mt-1 font-extrabold text-ink">{card.definition?.title ?? `Loyalty Card ${card.sequence_no}`}</h3></div>
                   <CardStatusBadge status={card.status} />

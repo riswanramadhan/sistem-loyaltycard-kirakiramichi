@@ -14,7 +14,7 @@ function friendlyRequestError(message: string): string {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("pending") || normalized.includes("unresolved")) {
-    return "Request sebelumnya masih diperiksa. Tunggu kabarnya dulu, ya.";
+    return "Card ini masih punya request yang sedang diperiksa. Kamu tetap bisa request di card lain.";
   }
   if (
     normalized.includes("remaining") ||
@@ -24,8 +24,8 @@ function friendlyRequestError(message: string): string {
   ) {
     return "Jumlah stamp melebihi slot yang tersisa di card ini.";
   }
-  if (normalized.includes("active") || normalized.includes("locked")) {
-    return "Card ini belum bisa menerima request stamp.";
+  if (normalized.includes("active")) {
+    return "Card ini sudah selesai atau belum bisa menerima request stamp.";
   }
   if (
     normalized.includes("permission") ||

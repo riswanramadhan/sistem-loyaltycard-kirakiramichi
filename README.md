@@ -1,13 +1,13 @@
 # Kira Kira Michi Digital Loyalty Card
 
-Aplikasi loyalty mobile-first untuk alur lengkap **scan -> join -> request stamp -> review admin -> reward -> card berikutnya**. Dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, Supabase Auth/PostgreSQL/Realtime, dan database RPC transaksional.
+Aplikasi loyalty mobile-first untuk alur lengkap **scan -> join -> request stamp -> review admin -> reward**. Dibangun dengan Next.js App Router, TypeScript, Tailwind CSS, Supabase Auth/PostgreSQL/Realtime, dan database RPC transaksional.
 
 ## Fitur MVP
 
 - Registrasi, login, verifikasi email dengan OTP delapan digit, reset password lewat link, dan sesi server-side.
 - Join via `/join` yang idempotent.
-- Tujuh loyalty card berurutan, enam stamp per card, lalu berulang ke Card 1 dengan badge jumlah putaran.
-- Request +1 sampai +6, status pending, approval parsial, rejection, dan sinkronisasi realtime.
+- Tujuh loyalty card yang semuanya terbuka sejak awal, enam stamp per card. Putaran baru (dengan badge jumlah putaran) dimulai setelah ketujuh card penuh, dalam urutan apa pun.
+- Request +1 sampai +6 di card mana pun tanpa menunggu card lain di-approve; satu request pending per card, stamp baru masuk setelah admin approve (atau approve parsial) dan reject tidak menambah stamp. Sinkronisasi realtime.
 - Reward tersedia/kedaluwarsa/ditebus per putaran, history, profile, tanggal lahir, dan persetujuan syarat.
 - Dashboard admin, request inbox, customer directory/detail, controlled adjustments termasuk pembalikan completion yang aman, program editor, audit ledger, dan QR join.
 - Login admin via OTP email, pembuatan admin dari workspace, dan penghapusan customer beserta seluruh data akun.

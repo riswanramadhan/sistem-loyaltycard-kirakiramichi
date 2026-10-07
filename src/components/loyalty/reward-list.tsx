@@ -12,7 +12,7 @@ const sectionCopy = {
   },
   locked: {
     title: "Locked",
-    description: "Selesaikan card berurutan untuk membukanya.",
+    description: "Selesaikan card-nya untuk membuka reward ini.",
     empty: "Semua reward sudah pernah kamu buka.",
   },
   expired: {

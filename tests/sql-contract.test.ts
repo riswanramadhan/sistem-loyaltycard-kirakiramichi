@@ -3,7 +3,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration = (name: string) =>
-  readFileSync(join(process.cwd(), "supabase", "migrations", name), "utf8").toLowerCase();
+  readFileSync(join(process.cwd(), "supabase", "migrations", name), "utf8").replace(/\r\n/g, "\n").toLowerCase();
+
+// Body of the (last) definition of a public function inside one migration file.
+const functionBody = (sql: string, name: string) => {
+  const start = sql.lastIndexOf(`create or replace function public.${name}(`);
+  expect(start, `function ${name} is defined`).toBeGreaterThanOrEqual(0);
+  const next = sql.indexOf("create or replace function", start + 1);
+  return sql.slice(start, next === -1 ? undefined : next);
+};
 
 const schema = migration("20260814000100_loyalty_schema.sql");
 const security = migration("20260814000200_loyalty_security.sql");
@@ -18,6 +26,7 @@ const birthdayAndTerms = migration("20260830000100_customer_birthday_and_terms.s
 const cycles = migration("20260830000200_seven_card_six_stamp_cycles.sql");
 const cycleRead = migration("20260830000300_cycle_aware_customer_read.sql");
 const passwordlessAdminInvites = migration("20260830000400_passwordless_admin_invitations.sql");
+const openCards = migration("20261007000100_open_all_cards_independent_requests.sql");
 
 describe("Supabase migration contract", () => {
   it("defines every required business table", () => {
@@ -46,6 +55,68 @@ describe("Supabase migration contract", () => {
     expect(schema).toContain("member_cards_one_active_per_program_idx");
     expect(schema).toContain("stamp_requests_one_pending_per_user_idx");
     expect(schema).toContain("loyalty_card_definitions_fixed_mvp_active");
+  });
+
+  it("opens every card from the start and tracks pending requests per card", () => {
+    expect(openCards).toContain("drop index if exists public.member_cards_one_active_per_program_idx");
+    expect(openCards).toContain("drop index if exists public.stamp_requests_one_pending_per_user_idx");
+    expect(openCards).toContain("create unique index if not exists stamp_requests_one_pending_per_card_idx");
+    expect(openCards).toContain("on public.stamp_requests (member_card_id)");
+    expect(openCards).toContain("update public.member_cards\nset status = 'active'\nwhere status = 'locked'");
+
+    const join = functionBody(openCards, "join_loyalty_program");
+    expect(join).toContain("'active'::public.member_card_status");
+    expect(join).not.toContain("'locked'");
+
+    const request = functionBody(openCards, "request_stamps");
+    expect(request).toContain("where member_card_id = p_member_card_id and status = 'pending'");
+    expect(request).not.toContain("where user_id = v_user_id and status = 'pending'");
+    expect(request).toContain("member_card_not_active");
+    expect(request).toContain("insufficient_stamp_capacity");
+  });
+
+  it("restarts the cycle only when every card is complete and never unlocks cards", () => {
+    const advance = functionBody(openCards, "_advance_loyalty_after_completion");
+    expect(advance).toContain("mc.status <> 'completed'");
+    expect(advance).toContain("completed_cycles = completed_cycles + 1");
+    expect(advance).not.toContain("'locked'");
+    expect(advance).not.toContain("sequence_no + 1");
+    expect(advance).not.toContain("sequence_no < 7");
+    // The member row lock comes before the completeness check so concurrent approvals serialise.
+    expect(advance.indexOf("from public.member_programs as mp")).toBeLessThan(
+      advance.indexOf("mc.status <> 'completed'"),
+    );
+  });
+
+  it("lets any completed card be reopened and scopes adjustment guards to one card", () => {
+    const adjust = functionBody(openCards, "adjust_member_stamps");
+    expect(adjust).toContain("completed_card_reward_not_available_for_reversal");
+    expect(adjust).toContain("where member_card_id = v_card.id and status = 'pending'");
+    expect(adjust).not.toContain("next_member_card_has_progress");
+    expect(adjust).not.toContain("next_member_card_has_activity");
+    expect(adjust).not.toContain("sequence_no < 7");
+    expect(adjust).not.toContain("'locked'");
+  });
+
+  it("keeps the admin customer list deterministic when several cards are active", () => {
+    const search = functionBody(openCards, "search_admin_customers");
+    expect(search).toContain("order by mc.sequence_no");
+  });
+
+  it("re-applies the privileges of every function it replaces", () => {
+    for (const signature of [
+      "join_loyalty_program(text)",
+      "request_stamps(uuid, smallint, text)",
+      "adjust_member_stamps(uuid, smallint, text)",
+      "search_admin_customers(text, integer, integer)",
+    ]) {
+      expect(openCards).toContain(`revoke all on function public.${signature} from public, anon, authenticated`);
+      expect(openCards).toContain(`grant execute on function public.${signature} to authenticated`);
+    }
+    expect(openCards).toContain(
+      "revoke all on function public._advance_loyalty_after_completion(uuid, timestamptz) from public, anon, authenticated",
+    );
+    expect(openCards).not.toContain("_advance_loyalty_after_completion(uuid, timestamptz) to authenticated");
   });
 
   it("requires birthday and terms for new customer memberships", () => {
@@ -178,9 +249,12 @@ describe("Supabase migration contract", () => {
       join(process.cwd(), "supabase", "tests", "database", "loyalty_database.test.sql"),
       "utf8",
     ).toLowerCase();
-    expect(pgTap).toContain("extensions.plan(108)");
+    expect(pgTap).toContain("extensions.plan(120)");
     expect(pgTap).toContain("double approval is rejected");
-    expect(pgTap).toContain("card seven completion starts a new loyalty cycle");
+    expect(pgTap).toContain("completing the last unfinished card starts a new loyalty cycle");
+    expect(pgTap).toContain("join opens all seven cards from the start");
+    expect(pgTap).toContain("a customer can request stamps on card seven without finishing earlier cards");
+    expect(pgTap).toContain("admin can approve a later card before an earlier one");
     expect(pgTap).toContain("customer cannot read another profile");
     expect(pgTap).toContain("an expired reward cannot be redeemed");
     expect(pgTap).toContain("reversal reopens the completed card with corrected progress");

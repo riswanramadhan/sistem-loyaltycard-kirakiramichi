@@ -34,7 +34,7 @@ function friendlyMutationError(context: string, error: { message?: string; code?
 
   const message = error.message?.toLowerCase() ?? "";
   if (message.includes("pending_stamp_request_exists")) {
-    return "Selesaikan request stamp yang masih pending sebelum melakukan penyesuaian manual.";
+    return "Selesaikan request stamp yang masih pending di kartu ini sebelum melakukan penyesuaian manual.";
   }
   if (message.includes("customer_not_found")) {
     return "Customer sudah tidak ditemukan. Kembali ke daftar customer lalu muat data terbaru.";
@@ -47,12 +47,6 @@ function friendlyMutationError(context: string, error: { message?: string; code?
   }
   if (message.includes("completed_card_reward_not_available_for_reversal")) {
     return "Completion tidak dapat dibuka ulang karena reward sudah ditebus atau tidak lagi tersedia.";
-  }
-  if (
-    message.includes("next_member_card_has_progress") ||
-    message.includes("next_member_card_has_activity")
-  ) {
-    return "Completion tidak dapat dibuka ulang karena kartu berikutnya sudah memiliki progres atau riwayat aktivitas.";
   }
   if (message.includes("adjustment_exceeds_stamp_bounds")) {
     return "Penyesuaian akan membuat jumlah stamp di luar batas 0–6.";
@@ -76,7 +70,7 @@ function friendlyMutationError(context: string, error: { message?: string; code?
     return "Reward ini sudah melewati masa berlaku dan tidak dapat ditebus.";
   }
   if (message.includes("downstream") || message.includes("reversal")) {
-    return "Penyelesaian kartu tidak dapat dibalik karena kartu berikutnya sudah memiliki aktivitas atau reward sudah ditebus.";
+    return "Penyelesaian kartu tidak dapat dibalik karena reward-nya sudah ditebus.";
   }
   if (message.includes("permission") || message.includes("admin") || error.code === "42501") {
     return "Sesi admin tidak memiliki izin untuk aksi ini. Silakan masuk kembali.";
@@ -290,11 +284,7 @@ export async function adjustMemberStampsAction(
     ? (data as Record<string, unknown>)
     : {};
   if (result.completion_reversed === true) {
-    return success(
-      result.relocked_card_id
-        ? "Completion berhasil dibuka ulang. Reward dibatalkan dan kartu berikutnya dikunci kembali."
-        : "Completion berhasil dibuka ulang. Reward dibatalkan dan program kembali aktif.",
-    );
+    return success("Completion berhasil dibuka ulang. Reward dibatalkan dan kartu kembali aktif.");
   }
   return success(quantity > 0 ? "1 stamp berhasil diberikan." : "1 stamp berhasil dicabut.");
 }

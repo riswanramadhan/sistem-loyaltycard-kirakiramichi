@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions, pg_catalog;
 
-select extensions.plan(108);
+select extensions.plan(120);
 
 -- Required schema and deletion semantics.
 select extensions.has_table('public', 'profiles', 'profiles exists');
@@ -165,9 +165,10 @@ select extensions.is(
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.status = 'active'
+      and mc.stamps_count = 0
   ),
-  1::bigint,
-  'join creates exactly one active card'
+  7::bigint,
+  'join opens all seven cards from the start'
 );
 select extensions.is(
   public.join_loyalty_program('database-test-loyalty'),
@@ -322,7 +323,7 @@ select extensions.throws_ok(
   ),
   '55000',
   'pending_stamp_request_exists',
-  'a second unresolved request is rejected'
+  'a second unresolved request on the same card is rejected'
 );
 
 -- A customer cannot review even their own request.
@@ -513,7 +514,7 @@ select extensions.is(
   'rejection does not change stamp progress'
 );
 
--- Capacity, exact sixth stamp, reward, and sequential unlock.
+-- Capacity, exact sixth stamp, and reward. Completing a card never touches another card.
 select extensions.lives_ok(
   format(
     'select public.adjust_member_stamps(%L::uuid, 3::smallint, %L)',
@@ -584,14 +585,14 @@ select extensions.is(
 );
 select extensions.is(
   (
-    select mc.status::text
+    select mc.status::text || ':' || mc.stamps_count::text
     from public.member_cards as mc
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 2
   ),
-  'active'::text,
-  'card completion activates the next card'
+  'active:0'::text,
+  'card completion leaves card two open and untouched'
 );
 select extensions.is(
   (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001' and status = 'available'),
@@ -599,7 +600,7 @@ select extensions.is(
   'card completion unlocks one available reward'
 );
 
--- A safe completed-card revoke reverses only untouched downstream progression.
+-- Revoking from a completed card reopens it and cancels its reward; other cards stay as they are.
 select extensions.is(
   (
     public.adjust_member_stamps(
@@ -636,8 +637,8 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 2
   ),
-  'locked:0'::text,
-  'reversal relocks the untouched next card before reopening the previous card'
+  'active:0'::text,
+  'reversal leaves the next card open and untouched'
 );
 select extensions.is(
   (select count(*) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
@@ -673,14 +674,14 @@ select extensions.lives_ok(
 );
 select extensions.is(
   (
-    select mc.status::text
+    select mc.status::text || ':' || mc.stamps_count::text
     from public.member_cards as mc
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 2
   ),
-  'active'::text,
-  'recompletion activates the next card again'
+  'active:0'::text,
+  'recompletion leaves the next card open and untouched'
 );
 select extensions.is(
   (
@@ -777,9 +778,10 @@ select extensions.lives_ok(
     ),
     'Create downstream progress guard fixture'
   ),
-  'admin can add progress to the active next card'
+  'admin can add progress to the next card'
 );
-select extensions.throws_ok(
+-- Cards are independent, so progress on card two does not protect card one's completion.
+select extensions.lives_ok(
   format(
     'select public.adjust_member_stamps(%L::uuid, (-1)::smallint, %L)',
     (
@@ -789,11 +791,23 @@ select extensions.throws_ok(
       where mp.user_id = '40000000-0000-4000-8000-000000000001'
         and mc.sequence_no = 1
     ),
-    'Unsafe reversal with downstream progress'
+    'Reversal while the next card has progress'
   ),
-  '55000',
-  'next_member_card_has_progress',
-  'completion reversal is blocked after the next card gains progress'
+  'completion reversal is allowed even when the next card has progress'
+);
+select extensions.lives_ok(
+  format(
+    'select public.adjust_member_stamps(%L::uuid, 1::smallint, %L)',
+    (
+      select mc.id
+      from public.member_cards as mc
+      join public.member_programs as mp on mp.id = mc.member_program_id
+      where mp.user_id = '40000000-0000-4000-8000-000000000001'
+        and mc.sequence_no = 1
+    ),
+    'Restore completion after reversal with downstream progress'
+  ),
+  'the reopened card can be completed again while the next card has progress'
 );
 select extensions.lives_ok(
   format(
@@ -807,23 +821,19 @@ select extensions.lives_ok(
     ),
     'Remove downstream progress guard fixture'
   ),
-  'active-card revoke removes the downstream guard fixture'
+  'active-card revoke removes the downstream progress fixture'
 );
-select extensions.throws_ok(
-  format(
-    'select public.adjust_member_stamps(%L::uuid, (-1)::smallint, %L)',
-    (
-      select mc.id
-      from public.member_cards as mc
-      join public.member_programs as mp on mp.id = mc.member_program_id
-      where mp.user_id = '40000000-0000-4000-8000-000000000001'
-        and mc.sequence_no = 1
-    ),
-    'Unsafe reversal after downstream audit activity'
+select extensions.is(
+  (
+    select mc.status::text || ':' || mc.stamps_count::text || ':' ||
+      (select count(*) from public.reward_redemptions rr where rr.member_card_id = mc.id and rr.status = 'available')::text
+    from public.member_cards as mc
+    join public.member_programs as mp on mp.id = mc.member_program_id
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+      and mc.sequence_no = 1
   ),
-  '55000',
-  'next_member_card_has_activity',
-  'completion reversal remains blocked after downstream progress returns to zero'
+  'completed:6:1'::text,
+  'card one stays completed with exactly one available reward after the other card changed'
 );
 
 update public.reward_redemptions
@@ -941,17 +951,33 @@ select extensions.lives_ok(
     'Complete test card five'),
   'admin grant can complete card five'
 );
-select extensions.lives_ok(
-  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
-    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 6),
-    'Complete test card six'),
-  'admin grant can complete card six'
-);
+-- Card seven is finished before card six: the cycle only restarts with the last unfinished card.
 select extensions.lives_ok(
   format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
     (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 7),
     'Complete test card seven'),
-  'admin grant can complete card seven'
+  'admin grant can complete card seven before card six'
+);
+select extensions.is(
+  (
+    select mp.completed_cycles::text || ':' || (
+      select mc.status::text || ':' || mc.stamps_count::text
+      from public.member_cards as mc
+      where mc.member_program_id = mp.id
+        and mc.sequence_no = 7
+    )
+    from public.member_programs as mp
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+      and mp.program_id = '30000000-0000-4000-8000-000000000001'
+  ),
+  '0:completed:6'::text,
+  'completing card seven first keeps it completed and does not restart the cycle'
+);
+select extensions.lives_ok(
+  format('select public.adjust_member_stamps(%L::uuid, 6::smallint, %L)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 6),
+    'Complete test card six'),
+  'admin grant can complete card six as the last unfinished card'
 );
 select extensions.is(
   (
@@ -961,7 +987,7 @@ select extensions.is(
       and program_id = '30000000-0000-4000-8000-000000000001'
   ),
   'active'::text,
-  'card seven completion starts a new loyalty cycle'
+  'completing the last unfinished card starts a new loyalty cycle'
 );
 select extensions.is(
   (
@@ -996,9 +1022,10 @@ select extensions.is(
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.status = 'active'
+      and mc.stamps_count = 0
   ),
-  1::bigint,
-  'new cycle has exactly one active card'
+  7::bigint,
+  'new cycle opens all seven cards empty'
 );
 select extensions.is(
   (
@@ -1008,8 +1035,8 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 2
   ),
-  'locked:0'::text,
-  'card two is reset and locked for the new cycle'
+  'active:0'::text,
+  'card two is reset and open for the new cycle'
 );
 select extensions.is(
   (
@@ -1019,8 +1046,8 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.sequence_no = 7
   ),
-  'locked:0'::text,
-  'card seven is reset and locked after closing the cycle'
+  'active:0'::text,
+  'card seven is reset and open after closing the cycle'
 );
 select extensions.is(
   (select count(distinct cycle_no) from public.reward_redemptions where user_id = '40000000-0000-4000-8000-000000000001'),
@@ -1083,7 +1110,7 @@ select extensions.throws_ok(
   'customer cannot redeem a reward through the admin RPC'
 );
 
--- Partial unique indexes remain effective after progression.
+-- Pending-request uniqueness is per card and stays effective after progression.
 select extensions.is(
   (
     select count(*)
@@ -1092,8 +1119,8 @@ select extensions.is(
     where mp.user_id = '40000000-0000-4000-8000-000000000001'
       and mc.status = 'active'
   ),
-  1::bigint,
-  'a new loyalty cycle has exactly one active card'
+  7::bigint,
+  'a new loyalty cycle keeps all seven cards active'
 );
 select extensions.is(
   (
@@ -1106,6 +1133,96 @@ select extensions.is(
   'completed journey leaves no unresolved request'
 );
 
+-- Every card is open: requests on different cards wait for review at the same
+-- time and can be reviewed in any order. Stamps still need admin approval.
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000001', true);
+select extensions.lives_ok(
+  format('select public.request_stamps(%L::uuid, 2::smallint, %L)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 5),
+    'Card five first'),
+  'a customer can request stamps on card five while card one has no progress'
+);
+select extensions.lives_ok(
+  format('select public.request_stamps(%L::uuid, 6::smallint, %L)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 7),
+    'Card seven without earlier cards'),
+  'a customer can request stamps on card seven without finishing earlier cards'
+);
+select extensions.is(
+  (
+    select count(*)
+    from public.stamp_requests
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and status = 'pending'
+  ),
+  2::bigint,
+  'requests on different cards wait for review at the same time'
+);
+select extensions.is(
+  (
+    select sum(mc.stamps_count)
+    from public.member_cards as mc
+    join public.member_programs as mp on mp.id = mc.member_program_id
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+  ),
+  0::bigint,
+  'pending requests do not add any stamp before admin approval'
+);
+select extensions.throws_ok(
+  format('select public.request_stamps(%L::uuid, 1::smallint, null)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 5)),
+  '55000',
+  'pending_stamp_request_exists',
+  'a second unresolved request on the same card is still rejected'
+);
+select extensions.throws_ok(
+  format('insert into public.stamp_requests (member_card_id, user_id, requested_count) values (%L::uuid, %L::uuid, 1)',
+    (select mc.id from public.member_cards mc join public.member_programs mp on mp.id = mc.member_program_id where mp.user_id = '40000000-0000-4000-8000-000000000001' and mc.sequence_no = 5),
+    '40000000-0000-4000-8000-000000000001'),
+  '23505',
+  null,
+  'the database itself refuses two pending requests for one card'
+);
+select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000003', true);
+select extensions.lives_ok(
+  format('select public.review_stamp_request(%L::uuid, %L, 6::smallint, %L)',
+    (select sr.id from public.stamp_requests sr join public.member_cards mc on mc.id = sr.member_card_id where mc.member_program_id = (select id from public.member_programs where user_id = '40000000-0000-4000-8000-000000000001') and mc.sequence_no = 7 and sr.status = 'pending'),
+    'approve',
+    'Later card approved first'),
+  'admin can approve a later card before an earlier one'
+);
+select extensions.is(
+  (
+    select mp.completed_cycles::text || ':' || (
+      select mc.status::text || ':' || mc.stamps_count::text
+      from public.member_cards as mc
+      where mc.member_program_id = mp.id
+        and mc.sequence_no = 7
+    )
+    from public.member_programs as mp
+    where mp.user_id = '40000000-0000-4000-8000-000000000001'
+  ),
+  '1:completed:6'::text,
+  'approving card seven first completes only that card in the new cycle'
+);
+select extensions.lives_ok(
+  format('select public.review_stamp_request(%L::uuid, %L, 0::smallint, %L)',
+    (select sr.id from public.stamp_requests sr join public.member_cards mc on mc.id = sr.member_card_id where mc.member_program_id = (select id from public.member_programs where user_id = '40000000-0000-4000-8000-000000000001') and mc.sequence_no = 5 and sr.status = 'pending'),
+    'reject',
+    'Not a real purchase'),
+  'admin can reject the request on the other card independently'
+);
+select extensions.is(
+  (
+    select count(*)
+    from public.stamp_requests
+    where user_id = '40000000-0000-4000-8000-000000000001'
+      and status = 'pending'
+  ),
+  0::bigint,
+  'both independent requests are resolved'
+);
+
 -- Initial-admin retirement preserves immutable audit history by transferring
 -- every actor reference to the verified replacement admin.
 select set_config('request.jwt.claim.sub', '40000000-0000-4000-8000-000000000002', true);
@@ -1116,7 +1233,7 @@ select public.request_stamps(
     from public.member_cards as mc
     join public.member_programs as mp on mp.id = mc.member_program_id
     where mp.user_id = '40000000-0000-4000-8000-000000000002'
-      and mc.status = 'active'
+      and mc.sequence_no = 1
   ),
   1::smallint,
   null
@@ -1134,6 +1251,15 @@ select public.review_stamp_request(
   1::smallint,
   'Reviewed by previous admin'
 );
+-- A reward can only belong to a completed card, so complete card two directly for this fixture.
+update public.member_cards as mc
+set status = 'completed',
+    stamps_count = 6,
+    completed_at = statement_timestamp()
+from public.member_programs as mp
+where mp.id = mc.member_program_id
+  and mp.user_id = '40000000-0000-4000-8000-000000000002'
+  and mc.sequence_no = 2;
 insert into public.reward_redemptions (
   member_card_id,
   user_id,

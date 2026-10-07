@@ -65,7 +65,7 @@ export default async function HistoryPage() {
       id: `completion-${card.id}`,
       occurredAt: card.completed_at,
       title: `Card ${card.sequence_no} — Completed`,
-      detail: "Reward terbuka dan card berikutnya siap dilanjutkan.",
+      detail: "Semua stamp card ini terkumpul dan reward-nya terbuka.",
       meta: "Loyalty milestone",
       kind: "completed",
     });

@@ -11,9 +11,9 @@ export const metadata: Metadata = {
   title: "Loyalty",
 };
 
+// Every card is open; only a completed card stops taking stamps.
 function cardStatus(value: string): LoyaltyCardStatus {
-  if (value === "active" || value === "completed") return value;
-  return "locked";
+  return value === "completed" ? "completed" : "active";
 }
 
 function MembershipEmpty({ name }: { name: string }) {
@@ -56,8 +56,14 @@ export default async function LoyaltyPage() {
 
   if (!membership) return <MembershipEmpty name={name} />;
 
-  const hasAnyPendingRequest = state.requests.some((request) => request.status === "pending");
   const latestEvent = state.stamp_events.find((event) => event.event_type === "grant") ?? null;
+  // Events arrive newest first, so the first grant seen per card is that card's latest one.
+  const latestGrantIdByCard = new Map<string, string>();
+  for (const event of state.stamp_events) {
+    if (event.event_type === "grant" && !latestGrantIdByCard.has(event.member_card_id)) {
+      latestGrantIdByCard.set(event.member_card_id, event.id);
+    }
+  }
   const cards: LoyaltyCardView[] = state.cards.map((row) => {
     const definition = row.definition;
     const pendingCount = row.pending_request?.requested_count ?? 0;
@@ -72,19 +78,20 @@ export default async function LoyaltyPage() {
       rewardDescription: definition?.reward_description ?? null,
       rewardTerms: definition?.reward_terms ?? null,
       pendingCount,
-      hasPendingRequest:
-        pendingCount > 0 || (row.status === "active" && hasAnyPendingRequest),
+      hasPendingRequest: pendingCount > 0,
       latestApprovedCount:
         latestEvent?.member_card_id === row.id ? Math.max(0, latestEvent.quantity) : 0,
-      latestEventId: latestEvent?.member_card_id === row.id ? latestEvent.id : null,
+      latestEventId: latestGrantIdByCard.get(row.id) ?? null,
     };
   });
 
-  const active = cards.find((card) => card.status === "active") ?? null;
   const completedCards = cards.filter((card) => card.status === "completed").length;
-  const remaining = active ? Math.max(0, STAMPS_PER_CARD - active.stampsCount) : 0;
+  // Cards are independent, so the nearest reward is the unfinished card with the fewest slots left.
+  const remaining = cards
+    .filter((card) => card.status === "active")
+    .reduce((fewest, card) => Math.min(fewest, STAMPS_PER_CARD - card.stampsCount), STAMPS_PER_CARD);
   const completedCycles = Math.max(0, membership.completed_cycles ?? 0);
-  const subcopy = active && remaining <= 2
+  const subcopy = remaining <= 2
       ? `Tinggal ${remaining} stamp lagi menuju reward berikutnya.`
       : "Yuk lanjut kumpulkan stamp-mu.";
 

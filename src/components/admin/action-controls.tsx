@@ -17,7 +17,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 import { Field, TextareaField } from "@/components/ui/field";
 import { StatusMessage } from "@/components/ui/status-message";
 import { ADMIN_FEEDBACK_EVENT } from "@/lib/admin-feedback";
-import { STAMPS_PER_CARD, TOTAL_CARDS } from "@/lib/loyalty/rules";
+import { STAMPS_PER_CARD } from "@/lib/loyalty/rules";
 
 const initialState: AdminActionState = { status: "idle", message: "" };
 
@@ -134,7 +134,7 @@ function ReviewDialog({
               <p className="mt-1 text-sm leading-6 text-ink-muted">
                 {isReject
                   ? "Request akan ditutup tanpa menambah stamp. Tindakan ini tidak bisa diulang."
-                  : `${approvedCount} stamp akan masuk secara atomik ke kartu aktif customer.`}
+                  : `${approvedCount} stamp akan masuk secara atomik ke kartu yang diminta customer.`}
               </p>
             </div>
             <DialogCloseButton onClick={close} />
@@ -218,21 +218,23 @@ function AdjustmentDialog({
   const [state, formAction] = useActionState(adjustMemberStampsAction, initialState);
   const { dialogRef, open, close } = useActionDialog(state);
   const titleId = useId();
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const granting = quantity > 0;
-  const eligibleCards = granting
-    ? cards.filter((card) => card.status === "active" && card.stamps < STAMPS_PER_CARD)
-    : cards.filter(
-        (card) =>
-          (card.status === "active" && card.stamps > 0) ||
-          (card.status === "completed" && card.canReverseCompletion),
-      );
+  const eligibleCards = (
+    granting
+      ? cards.filter((card) => card.status === "active" && card.stamps < STAMPS_PER_CARD)
+      : cards.filter(
+          (card) =>
+            (card.status === "active" && card.stamps > 0) ||
+            (card.status === "completed" && card.canReverseCompletion),
+        )
+  ).sort((left, right) => left.sequence - right.sequence);
   const defaultCard =
     eligibleCards.find((card) => card.status === "active") ??
     [...eligibleCards].sort((left, right) => right.sequence - left.sequence)[0];
-  const completionReversalCard = !granting
-    ? eligibleCards.find((card) => card.status === "completed")
-    : undefined;
-  const reversesCompletion = Boolean(completionReversalCard);
+  // Several cards can be eligible at once, so the copy follows the card picked in the dropdown.
+  const selectedCard = eligibleCards.find((card) => card.id === selectedCardId) ?? defaultCard;
+  const reversesCompletion = !granting && selectedCard?.status === "completed";
 
   return (
     <>
@@ -258,9 +260,7 @@ function AdjustmentDialog({
                 {granting
                   ? "Penyesuaian tercatat permanen di stamp ledger beserta alasan dan admin pelaksana."
                   : reversesCompletion
-                    ? completionReversalCard?.sequence === TOTAL_CARDS
-                      ? "1 stamp akan dicabut, reward putaran terakhir dibatalkan, dan kartu terakhir dibuka kembali. Semua perubahan tercatat di ledger."
-                      : "1 stamp akan dicabut, reward dibatalkan, dan kartu berikutnya dikunci kembali. Semua perubahan tercatat di ledger."
+                    ? "1 stamp akan dicabut, reward kartu ini dibatalkan, dan kartu dibuka kembali. Semua perubahan tercatat di ledger."
                     : "Penyesuaian tercatat permanen di stamp ledger beserta alasan dan admin pelaksana."}
               </p>
             </div>
@@ -272,7 +272,8 @@ function AdjustmentDialog({
             <select
               name="memberCardId"
               required
-              defaultValue={defaultCard?.id}
+              value={selectedCard?.id ?? ""}
+              onChange={(event) => setSelectedCardId(event.target.value)}
               className="min-h-12 w-full rounded-xl border border-line bg-white px-3.5 font-normal outline-none focus:border-brand focus:ring-3 focus:ring-brand/15"
             >
               {eligibleCards.map((card) => (

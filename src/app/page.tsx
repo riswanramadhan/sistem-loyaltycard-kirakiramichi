@@ -14,7 +14,7 @@ import { Card } from "@/components/ui/card";
 const steps = [
   { icon: QrCode, title: "Scan & join", copy: "Masuk lewat QR atau link loyalty." },
   { icon: Stamp, title: "Kumpulkan cap", copy: "Request +1 sampai +6 setiap transaksi." },
-  { icon: BadgeJapaneseYen, title: "Buka reward", copy: "Selesaikan 6 cap untuk lanjut ke card baru." },
+  { icon: BadgeJapaneseYen, title: "Buka reward", copy: "Penuhkan 6 cap di satu card untuk membuka rewardnya." },
 ];
 
 export default function HomePage() {

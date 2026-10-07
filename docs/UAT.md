@@ -6,15 +6,20 @@ Jalankan pada project Supabase staging yang sudah menerima seluruh migration. Gu
 
 - [ ] Buka `/join` saat logged out; CTA menuju register/login dan return path aman.
 - [ ] Register dengan consent tidak dicentang; profile terbentuk sebagai `customer`.
-- [ ] Card 1 aktif; Card 2–6 locked; scan `/join` ulang tidak membuat duplikasi.
+- [ ] Ketujuh card terbuka sejak awal (tidak ada gembok/status terkunci); scan `/join` ulang tidak membuat duplikasi.
 - [ ] Request +1; satu pending state muncul dan double tap tidak membuat request kedua.
+- [ ] Saat request di Card 1 masih pending, customer tetap bisa request di Card 2 dan Card 7; request kedua di Card 1 ditolak dengan pesan yang jelas.
+- [ ] Request pending di beberapa card tidak menambah stamp sebelum admin approve; stamp hanya muncul di card yang di-approve.
 - [ ] Request +2 pada card yang cukup kapasitas; +2 disabled saat tersisa satu slot.
 - [ ] Dengan halaman customer tetap terbuka, admin approve +1; popup +1, confetti, grid stamp, reward, dan history customer berubah tanpa reload/manual refresh.
 - [ ] Ulangi approve +2; popup customer menyebut +2 hanya sekali dan dua slot stamp langsung berubah tanpa reload/manual refresh.
 - [ ] Admin partial approve +2 menjadi +1; progress hanya bertambah satu.
 - [ ] Admin reject; progress customer tidak berubah dan note tampil di history.
-- [ ] Approval stamp ke-6 menyelesaikan card, membuka reward, dan mengaktifkan card berikutnya.
-- [ ] Card berikutnya aktif walaupun reward sebelumnya belum redeemed.
+- [ ] Approval stamp ke-6 menyelesaikan card dan membuka reward card itu; card lain tidak berubah.
+- [ ] Admin dapat meng-approve request Card 7 lebih dulu dari Card 1; progres card lain tidak hilang dan putaran belum berganti.
+- [ ] Putaran baru dimulai hanya setelah ketujuh card penuh (card terakhir yang selesai bisa Card berapa pun); semua card kembali kosong dan terbuka, badge putaran bertambah satu kali.
+- [ ] Card yang sudah penuh tidak bisa di-request lagi sampai putaran baru dimulai.
+- [ ] Halaman customer tidak menggulir ulang ke card lain saat data di-refresh setelah request.
 - [ ] Rewards tersedia/locked/kedaluwarsa/redeemed berada di section yang benar; reward kedaluwarsa tidak dapat ditebus.
 - [ ] Profile hanya dapat mengubah nama, WhatsApp, dan marketing preference.
 - [ ] Reset/change password dan logout bekerja.
@@ -28,7 +33,9 @@ Jalankan pada project Supabase staging yang sudah menerima seluruh migration. Gu
 - [ ] Approve, partial approve, reject menampilkan popup sukses 4 detik, loading/feedback, dan tidak bisa disubmit ganda.
 - [ ] Dua admin mencoba approve request yang sama; hanya satu transaksi berhasil.
 - [ ] Grant/revoke membutuhkan reason, membuat event immutable, dan tidak bisa melewati 0/6.
-- [ ] Revoke pada completion terakhir membuka ulang kartu secara atomik hanya bila reward belum ditebus dan kartu berikutnya belum memiliki aktivitas.
+- [ ] Revoke pada kartu yang sudah selesai membuka ulang kartu itu secara atomik (reward dibatalkan) hanya bila reward belum ditebus dan tidak ada request pending di kartu itu; kartu lain tidak berubah.
+- [ ] Grant/revoke ditolak untuk kartu yang punya request pending, tetapi tetap bisa untuk kartu lain milik customer yang sama.
+- [ ] Dropdown koreksi stamp memuat beberapa kartu; judul dan tombol dialog mengikuti kartu yang dipilih (buka ulang completion vs cabut 1 stamp).
 - [ ] Reward hanya dapat redeemed sekali dan menyimpan admin/timestamp/note.
 - [ ] Program editor mengubah nama/deskripsi/status program dan copy/reward, tetapi tidak menawarkan perubahan 7 kartu/6 stamp atau menonaktifkan satu definisi kartu.
 - [ ] Saat program dijeda, join/request/journey customer berhenti dengan aman; aktifkan kembali dan pastikan progres lama tetap utuh.
